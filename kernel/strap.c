@@ -48,9 +48,8 @@ void handle_mtimer_trap() {
   // TODO (lab1_3): increase g_ticks to record this "tick", and then clear the "SIP"
   // field in sip register.
   // hint: use write_csr to disable the SIP_SSIP bit in sip.
-  g_ticks++;
-  write_csr(sip, read_csr(sip) & ~SIP_SSIP);
-
+	g_ticks++;
+	write_csr(sip, 0);
 }
 
 //
@@ -66,21 +65,22 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // dynamically increase application stack.
       // hint: first allocate a new physical page, and then, maps the new page to the
       // virtual address that causes the page fault.
-	{
-		// Allocate a new physical page
-		struct Page *new_page = alloc_page();
-		if (!new_page) {
-			panic("Page allocation failed.\n");
-		}
+//      panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
+	  {
+		  // Allocate a new physical page
+		  struct Page *new_page = alloc_page();
+		  if (!new_page) {
+			  panic("Page allocation failed.\n");
+		  }
 
-		// Map the new page to the virtual address that caused the page fault
-		if (map_pages(current->pagetable, ROUNDDOWN(stval,PGSIZE), PGSIZE, (uint64)new_page, prot_to_type(
-				PROT_WRITE | PROT_READ, 1)) != 0) {
-			panic("Page mapping failed.\n");
-		}
+		  // Map the new page to the virtual address that caused the page fault
+		  if (map_pages(current->pagetable, ROUNDDOWN(stval,PGSIZE), PGSIZE, (uint64)new_page, prot_to_type(
+			  				  PROT_WRITE | PROT_READ, 1)) != 0) {
+			  panic("Page mapping failed.\n");
+		  }
 
-		break;
-	}
+		  break;
+	  }
     default:
       sprint("unknown page fault.\n");
       break;
@@ -95,6 +95,7 @@ void rrsched() {
   // hint: increase the tick_count member of current process by one, if it is bigger than
   // TIME_SLICE_LEN (means it has consumed its time slice), change its status into READY,
   // place it in the rear of ready queue, and finally schedule next process to run.
+//  panic( "You need to further implement the timer handling in lab3_3.\n" );
 	current->tick_count++;
 	if (current->tick_count >= TIME_SLICE_LEN) {
 		current->tick_count = 0;
@@ -102,7 +103,6 @@ void rrsched() {
 		insert_to_ready_queue(current);
 		schedule();
 	}
-
 }
 
 //

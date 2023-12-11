@@ -63,19 +63,22 @@ SPIKE_INF_LIB   := $(OBJ_DIR)/spike_interface.a
 
 
 #---------------------	user   -----------------------
-USER_CPPS 		:= user/*.c 
-
-USER_CPPS  		:= $(wildcard $(USER_CPPS))
-USER_OBJS  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS)))
-
+USER_CPPS1 		:= user/app_relativepath.c user/user_lib.c
+USER_OBJS1 		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS1)))
 USER_TARGET 	:= $(OBJ_DIR)/app_relativepath
+
+USER_CPPS2 		:= user/app_relativepath2.c user/user_lib.c
+USER_OBJS2 		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS2)))
+USER_TARGET2 	:= $(OBJ_DIR)/app_relativepath2
+
 #------------------------targets------------------------
 $(OBJ_DIR):
 	@-mkdir -p $(OBJ_DIR)	
 	@-mkdir -p $(dir $(UTIL_OBJS))
 	@-mkdir -p $(dir $(SPIKE_INF_OBJS))
 	@-mkdir -p $(dir $(KERNEL_OBJS))
-	@-mkdir -p $(dir $(USER_OBJS))
+	@-mkdir -p $(dir $(USER_OBJS1))
+	@-mkdir -p $(dir $(USER_OBJS2))
 
 $(OBJ_DIR)/%.o : %.c
 	@echo "compiling" $<
@@ -100,9 +103,14 @@ $(KERNEL_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(SPIKE_INF_LIB) $(KERNEL_OBJS) $(KERNE
 	@$(COMPILE) $(KERNEL_OBJS) $(UTIL_LIB) $(SPIKE_INF_LIB) -o $@ -T $(KERNEL_LDS)
 	@echo "PKE core has been built into" \"$@\"
 
-$(USER_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS)
+$(USER_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS1)
 	@echo "linking" $@	...	
-	@$(COMPILE) --entry=main $(USER_OBJS) $(UTIL_LIB) -o $@
+	@$(COMPILE) --entry=main $(USER_OBJS1) $(UTIL_LIB) -o $@
+	@echo "User app has been built into" \"$@\"
+
+$(USER_TARGET2): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS2)
+	@echo "linking" $@	...	
+	@$(COMPILE) --entry=main $(USER_OBJS2) $(UTIL_LIB) -o $@
 	@echo "User app has been built into" \"$@\"
 
 -include $(wildcard $(OBJ_DIR)/*/*.d)
@@ -110,7 +118,7 @@ $(USER_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS)
 
 .DEFAULT_GOAL := $(all)
 
-all: $(KERNEL_TARGET) $(USER_TARGET)
+all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_TARGET2)
 .PHONY:all
 
 run: $(KERNEL_TARGET) $(USER_TARGET)
