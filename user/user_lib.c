@@ -5,6 +5,7 @@
  * and user library more straightforward.
  */
 
+#include <stdint-gcc.h>
 #include "user_lib.h"
 #include "util/types.h"
 #include "util/snprintf.h"
@@ -48,4 +49,8 @@ int printu(const char* s, ...) {
 //
 int exit(int code) {
   return do_user_call(SYS_user_exit, code, 0, 0, 0, 0, 0, 0); 
+}
+
+void print_backtrace(int depth) {
+	do_user_call(SYS_user_backtrace, depth, 0, 0, 0, 0, 0, 0);
 }

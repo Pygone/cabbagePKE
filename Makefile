@@ -64,14 +64,17 @@ SPIKE_INF_LIB   := $(OBJ_DIR)/spike_interface.a
 
 #---------------------	user   -----------------------
 USER_LDS  := user/user.lds
-USER_CPPS 		:= user/*.c 
-
+USER_CPPS 		:= user/user_lib.c user/app_print_backtrace.c 
 USER_CPPS  		:= $(wildcard $(USER_CPPS))
 USER_OBJS  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS)))
+USER_CPPS2 		:= user/user_lib.c user/app_print_backtrace2.c 
+USER_CPPS2  	:= $(wildcard $(USER_CPPS2))
+USER_OBJS2  	:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS2)))
 
 
 
 USER_TARGET 	:= $(OBJ_DIR)/app_print_backtrace
+USER_TARGET2 	:= $(OBJ_DIR)/app_print_backtrace2
 #------------------------targets------------------------
 $(OBJ_DIR):
 	@-mkdir -p $(OBJ_DIR)	
@@ -79,6 +82,7 @@ $(OBJ_DIR):
 	@-mkdir -p $(dir $(SPIKE_INF_OBJS))
 	@-mkdir -p $(dir $(KERNEL_OBJS))
 	@-mkdir -p $(dir $(USER_OBJS))
+	@-mkdir -p $(dir $(USER_OBJS2))
 
 $(OBJ_DIR)/%.o : %.c
 	@echo "compiling" $<
@@ -108,12 +112,17 @@ $(USER_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS) $(USER_LDS)
 	@$(COMPILE) $(USER_OBJS) $(UTIL_LIB) -o $@ -T $(USER_LDS)
 	@echo "User app has been built into" \"$@\"
 
+$(USER_TARGET2): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS2) $(USER_LDS)
+	@echo "linking" $@	...	
+	@$(COMPILE) $(USER_OBJS2) $(UTIL_LIB) -o $@ -T $(USER_LDS)
+	@echo "User app has been built into" \"$@\"
+
 -include $(wildcard $(OBJ_DIR)/*/*.d)
 -include $(wildcard $(OBJ_DIR)/*/*/*.d)
 
 .DEFAULT_GOAL := $(all)
 
-all: $(KERNEL_TARGET) $(USER_TARGET)
+all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_TARGET2)
 .PHONY:all
 
 run: $(KERNEL_TARGET) $(USER_TARGET)
