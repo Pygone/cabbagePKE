@@ -135,7 +135,7 @@ void kern_vm_init(void)
 	// map virtual address [KERN_BASE, _etext] to physical address [DRAM_BASE, DRAM_BASE+(_etext - KERN_BASE)],
 	// to maintain (direct) text section kernel address mapping.
 	kern_vm_map(t_page_dir, KERN_BASE, DRAM_BASE, (uint64)
-	_etext - KERN_BASE,
+													  _etext - KERN_BASE,
 		prot_to_type(PROT_READ | PROT_EXEC, 0));
 
 	sprint("KERN_BASE 0x%lx\n", lookup_pa(t_page_dir, KERN_BASE));
@@ -144,13 +144,13 @@ void kern_vm_init(void)
 	// this is important when kernel needs to access the memory content of user's app
 	// without copying pages between kernel and user spaces.
 	kern_vm_map(t_page_dir, (uint64)
-	_etext, (uint64)
-	_etext, PHYS_TOP - (uint64)
-	_etext,
+			_etext, (uint64)
+			_etext, PHYS_TOP - (uint64)
+			_etext,
 		prot_to_type(PROT_READ | PROT_WRITE, 0));
 
 	sprint("physical address of _etext is: 0x%lx\n", lookup_pa(t_page_dir, (uint64)
-	_etext));
+		_etext));
 
 	g_kernel_pagetable = t_page_dir;
 }
@@ -171,13 +171,13 @@ void* user_va_to_pa(pagetable_t page_dir, void* va)
 	// (va & (1<<PGSHIFT -1)) means computing the offset of "va" inside its page.
 	// Also, it is possible that "va" is not mapped at all. in such case, we can find
 	// invalid PTE, and should return NULL.
+//  panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
 	uint64 pa;
 	pa = lookup_pa(page_dir, (uint64)
-	va);
+		va);
 	pa += ((uint64)
-	va & ((1 << PGSHIFT) - 1));
+			   va & ((1 << PGSHIFT) - 1));
 	return (void*) pa;
-
 }
 
 //
@@ -194,14 +194,16 @@ void user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int pe
 // unmap virtual address [va, va+size] from the user app.
 // reclaim the physical pages if free!=0
 //
-void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
-  // TODO (lab2_2): implement user_vm_unmap to disable the mapping of the virtual pages
-  // in [va, va+size], and free the corresponding physical pages used by the virtual
-  // addresses when if 'free' (the last parameter) is not zero.
-  // basic idea here is to first locate the PTEs of the virtual pages, and then reclaim
-  // (use free_page() defined in pmm.c) the physical pages. lastly, invalidate the PTEs.
-  // as naive_free reclaims only one page at a time, you only need to consider one page
-  // to make user/app_naive_malloc to behave correctly.
+void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free)
+{
+	// TODO (lab2_2): implement user_vm_unmap to disable the mapping of the virtual pages
+	// in [va, va+size], and free the corresponding physical pages used by the virtual
+	// addresses when if 'free' (the last parameter) is not zero.
+	// basic idea here is to first locate the PTEs of the virtual pages, and then reclaim
+	// (use free_page() defined in pmm.c) the physical pages. lastly, invalidate the PTEs.
+	// as naive_free reclaims only one page at a time, you only need to consider one page
+	// to make user/app_naive_malloc to behave correctly.
+	//  panic( "You have to implement user_vm_unmap to free pages using naive_free in lab2_2.\n" );
 	pte_t* pte;
 	pte = page_walk(page_dir, va, 0);
 	if (pte == 0) {
@@ -209,7 +211,6 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
 	}
 	free_page((void*) PTE2PA(*pte));
 	*pte &= ~PTE_V;
-
 }
 
 //
