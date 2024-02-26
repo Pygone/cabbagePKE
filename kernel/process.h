@@ -39,5 +39,5 @@ typedef struct process_t {
 void switch_to(process*);
 
 extern process* current;
-
+void print_error_line(uint64 mepc);
 #endif
