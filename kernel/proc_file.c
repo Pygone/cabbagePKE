@@ -14,7 +14,9 @@
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
-
+#include "elf.h"
+#include "vmm.h"
+#include "memlayout.h"
 //
 // initialize file system
 //
@@ -112,7 +114,8 @@ int do_read(int fd, char *buf, uint64 count) {
   char buffer[count + 1];
   int len = vfs_read(pfile, buffer, count);
   buffer[count] = '\0';
-  strcpy(buf, buffer);
+  char *p = buffer;
+  while (count--) *buf++ = *p++;
   return len;
 }
 
@@ -220,4 +223,75 @@ int do_link(char *oldpath, char *newpath) {
 //
 int do_unlink(char *path) {
   return vfs_unlink(path);
+}
+
+static void exec_bincode(process *p, char *path)
+{
+    sprint("Application: %s\n", path);
+    int fp = do_open(path, O_RDONLY);
+    elf_header ehdr;
+    if (do_read(fp,(char*)&ehdr,sizeof(ehdr)) != sizeof(ehdr))
+    {
+        panic("read elf header error\n");
+    }
+    if (ehdr.magic != ELF_MAGIC)
+    {
+        panic("do_exec: not an elf file.\n");
+    }
+    elf_prog_header ph_addr;
+    for (int i = 0, off = ehdr.phoff; i < ehdr.phnum; i++, off += sizeof(ph_addr))
+    {
+        do_lseek(fp,off,SEEK_SET);
+        if (do_read(fp,(char*)&ph_addr,sizeof(ph_addr)) != sizeof(ph_addr))
+        {
+            panic("read elf program header error\n");
+        }
+        if (ph_addr.type != ELF_PROG_LOAD)
+            continue;
+        if (ph_addr.memsz < ph_addr.filesz)
+        {
+            panic("memsz < filesz error.\n");
+        }
+        if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr)
+        {
+            panic("vaddr + memsz < vaddr error.\n");
+        }
+        void *pa = alloc_page(); // 分配一页内存
+        memset(pa, 0, PGSIZE);
+        user_vm_map((pagetable_t)p->pagetable, ph_addr.vaddr, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1));
+        do_lseek(fp,ph_addr.off,SEEK_SET);
+        if (do_read(fp,pa,ph_addr.filesz) != ph_addr.filesz)
+        {
+            panic("read program segment error.\n");
+        }
+        int pos = p->total_mapped_region;
+        p->mapped_info[pos].va = ph_addr.vaddr;
+        p->mapped_info[pos].npages = 1;
+
+        // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
+        if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_EXECUTABLE))
+        {
+            p->mapped_info[pos].seg_type = CODE_SEGMENT;
+            sprint("CODE_SEGMENT added at mapped info offset:%d\n", pos);
+        }
+        else if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_WRITABLE))
+        {
+            p->mapped_info[pos].seg_type = DATA_SEGMENT;
+            sprint("DATA_SEGMENT added at mapped info offset:%d\n", pos);
+        }
+        else
+            panic("unknown program segment encountered, segment flag:%d.\n", ph_addr.flags);
+
+        p->total_mapped_region++;
+    }
+    p->trapframe->epc = ehdr.entry;
+    sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
+}
+
+
+int do_exec(char *path)
+{
+    exec_clean(current);
+    exec_bincode(current, path);
+    return -1;
 }

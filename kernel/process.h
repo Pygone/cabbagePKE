@@ -110,4 +110,5 @@ int do_fork(process* parent);
 // current running process
 extern process* current;
 
+void exec_clean(process* p);
 #endif
