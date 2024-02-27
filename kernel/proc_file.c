@@ -20,17 +20,20 @@
 //
 // initialize file system
 //
-void fs_init(void) {
+void fs_init(void)
+{
   // initialize the vfs
   vfs_init();
 
   // register hostfs and mount it as the root
-  if( register_hostfs() < 0 ) panic( "fs_init: cannot register hostfs.\n" );
+  if (register_hostfs() < 0)
+    panic("fs_init: cannot register hostfs.\n");
   struct device *hostdev = init_host_device("HOSTDEV");
   vfs_mount("HOSTDEV", MOUNT_AS_ROOT);
 
   // register and mount rfs
-  if( register_rfs() < 0 ) panic( "fs_init: cannot register rfs.\n" );
+  if (register_rfs() < 0)
+    panic("fs_init: cannot register rfs.\n");
   struct device *ramdisk0 = init_rfs_device("RAMDISK0");
   rfs_format_dev(ramdisk0);
   vfs_mount("RAMDISK0", MOUNT_DEFAULT);
@@ -40,7 +43,8 @@ void fs_init(void) {
 // initialize a proc_file_management data structure for a process.
 // return the pointer to the page containing the data structure.
 //
-proc_file_management *init_proc_file_management(void) {
+proc_file_management *init_proc_file_management(void)
+{
   proc_file_management *pfiles = (proc_file_management *)alloc_page();
   pfiles->cwd = vfs_root_dentry; // by default, cwd is the root
   pfiles->nfiles = 0;
@@ -56,7 +60,8 @@ proc_file_management *init_proc_file_management(void) {
 // reclaim the open-file management data structure of a process.
 // note: this function is not used as PKE does not actually reclaim a process.
 //
-void reclaim_proc_file_management(proc_file_management *pfiles) {
+void reclaim_proc_file_management(proc_file_management *pfiles)
+{
   free_page(pfiles);
   return;
 }
@@ -65,15 +70,19 @@ void reclaim_proc_file_management(proc_file_management *pfiles) {
 // get an opened file from proc->opened_file array.
 // return: the pointer to the opened file structure.
 //
-struct file *get_opened_file(int fd) {
+struct file *get_opened_file(int fd)
+{
   struct file *pfile = NULL;
 
   // browse opened file list to locate the fd
-  for (int i = 0; i < MAX_FILES; ++i) {
-    pfile = &(current->pfiles->opened_files[i]);  // file entry
-    if (i == fd) break;
+  for (int i = 0; i < MAX_FILES; ++i)
+  {
+    pfile = &(current->pfiles->opened_files[i]); // file entry
+    if (i == fd)
+      break;
   }
-  if (pfile == NULL) panic("do_read: invalid fd!\n");
+  if (pfile == NULL)
+    panic("do_read: invalid fd!\n");
   return pfile;
 }
 
@@ -81,18 +90,23 @@ struct file *get_opened_file(int fd) {
 // open a file named as "pathname" with the permission of "flags".
 // return: -1 on failure; non-zero file-descriptor on success.
 //
-int do_open(char *pathname, int flags) {
+int do_open(char *pathname, int flags)
+{
   struct file *opened_file = NULL;
-  if ((opened_file = vfs_open(pathname, flags)) == NULL) return -1;
+  if ((opened_file = vfs_open(pathname, flags)) == NULL)
+    return -1;
 
   int fd = 0;
-  if (current->pfiles->nfiles >= MAX_FILES) {
+  if (current->pfiles->nfiles >= MAX_FILES)
+  {
     panic("do_open: no file entry for current process!\n");
   }
   struct file *pfile;
-  for (fd = 0; fd < MAX_FILES; ++fd) {
+  for (fd = 0; fd < MAX_FILES; ++fd)
+  {
     pfile = &(current->pfiles->opened_files[fd]);
-    if (pfile->status == FD_NONE) break;
+    if (pfile->status == FD_NONE)
+      break;
   }
 
   // initialize this file structure
@@ -106,16 +120,19 @@ int do_open(char *pathname, int flags) {
 // read content of a file ("fd") into "buf" for "count".
 // return: actual length of data read from the file.
 //
-int do_read(int fd, char *buf, uint64 count) {
+int do_read(int fd, char *buf, uint64 count)
+{
   struct file *pfile = get_opened_file(fd);
 
-  if (pfile->readable == 0) panic("do_read: no readable file!\n");
+  if (pfile->readable == 0)
+    panic("do_read: no readable file!\n");
 
   char buffer[count + 1];
   int len = vfs_read(pfile, buffer, count);
   buffer[count] = '\0';
   char *p = buffer;
-  while (count--) *buf++ = *p++;
+  while (count--)
+    *buf++ = *p++;
   return len;
 }
 
@@ -123,10 +140,12 @@ int do_read(int fd, char *buf, uint64 count) {
 // write content ("buf") whose length is "count" to a file "fd".
 // return: actual length of data written to the file.
 //
-int do_write(int fd, char *buf, uint64 count) {
+int do_write(int fd, char *buf, uint64 count)
+{
   struct file *pfile = get_opened_file(fd);
 
-  if (pfile->writable == 0) panic("do_write: cannot write file!\n");
+  if (pfile->writable == 0)
+    panic("do_write: cannot write file!\n");
 
   int len = vfs_write(pfile, buf, count);
   return len;
@@ -135,7 +154,8 @@ int do_write(int fd, char *buf, uint64 count) {
 //
 // reposition the file offset
 //
-int do_lseek(int fd, int offset, int whence) {
+int do_lseek(int fd, int offset, int whence)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_lseek(pfile, offset, whence);
 }
@@ -143,7 +163,8 @@ int do_lseek(int fd, int offset, int whence) {
 //
 // read the vinode information
 //
-int do_stat(int fd, struct istat *istat) {
+int do_stat(int fd, struct istat *istat)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_stat(pfile, istat);
 }
@@ -151,7 +172,8 @@ int do_stat(int fd, struct istat *istat) {
 //
 // read the inode information on the disk
 //
-int do_disk_stat(int fd, struct istat *istat) {
+int do_disk_stat(int fd, struct istat *istat)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_disk_stat(pfile, istat);
 }
@@ -159,7 +181,8 @@ int do_disk_stat(int fd, struct istat *istat) {
 //
 // close a file
 //
-int do_close(int fd) {
+int do_close(int fd)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_close(pfile);
 }
@@ -168,17 +191,21 @@ int do_close(int fd) {
 // open a directory
 // return: the fd of the directory file
 //
-int do_opendir(char *pathname) {
+int do_opendir(char *pathname)
+{
   struct file *opened_file = NULL;
-  if ((opened_file = vfs_opendir(pathname)) == NULL) return -1;
+  if ((opened_file = vfs_opendir(pathname)) == NULL)
+    return -1;
 
   int fd = 0;
   struct file *pfile;
-  for (fd = 0; fd < MAX_FILES; ++fd) {
+  for (fd = 0; fd < MAX_FILES; ++fd)
+  {
     pfile = &(current->pfiles->opened_files[fd]);
-    if (pfile->status == FD_NONE) break;
+    if (pfile->status == FD_NONE)
+      break;
   }
-  if (pfile->status != FD_NONE)  // no free entry
+  if (pfile->status != FD_NONE) // no free entry
     panic("do_opendir: no file entry for current process!\n");
 
   // initialize this file structure
@@ -191,7 +218,8 @@ int do_opendir(char *pathname) {
 //
 // read a directory entry
 //
-int do_readdir(int fd, struct dir *dir) {
+int do_readdir(int fd, struct dir *dir)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_readdir(pfile, dir);
 }
@@ -199,14 +227,16 @@ int do_readdir(int fd, struct dir *dir) {
 //
 // make a new directory
 //
-int do_mkdir(char *pathname) {
+int do_mkdir(char *pathname)
+{
   return vfs_mkdir(pathname);
 }
 
 //
 // close a directory
 //
-int do_closedir(int fd) {
+int do_closedir(int fd)
+{
   struct file *pfile = get_opened_file(fd);
   return vfs_closedir(pfile);
 }
@@ -214,84 +244,87 @@ int do_closedir(int fd) {
 //
 // create hard link to a file
 //
-int do_link(char *oldpath, char *newpath) {
+int do_link(char *oldpath, char *newpath)
+{
   return vfs_link(oldpath, newpath);
 }
 
 //
 // remove a hard link to a file
 //
-int do_unlink(char *path) {
+int do_unlink(char *path)
+{
   return vfs_unlink(path);
 }
 
 static void exec_bincode(process *p, char *path)
 {
-    sprint("Application: %s\n", path);
-    int fp = do_open(path, O_RDONLY);
-    elf_header ehdr;
-    if (do_read(fp,(char*)&ehdr,sizeof(ehdr)) != sizeof(ehdr))
+  sprint("Application: %s\n", path);
+  int fp = do_open(path, O_RDONLY);
+  elf_header ehdr;
+  if (do_read(fp, (char *)&ehdr, sizeof(ehdr)) != sizeof(ehdr))
+  {
+    panic("read elf header error\n");
+  }
+  if (ehdr.magic != ELF_MAGIC)
+  {
+    panic("do_exec: not an elf file.\n");
+  }
+  elf_prog_header ph_addr;
+  for (int i = 0, off = ehdr.phoff; i < ehdr.phnum; i++, off += sizeof(ph_addr))
+  {
+    do_lseek(fp, off, SEEK_SET);
+    if (do_read(fp, (char *)&ph_addr, sizeof(ph_addr)) != sizeof(ph_addr))
     {
-        panic("read elf header error\n");
+      panic("read elf program header error\n");
     }
-    if (ehdr.magic != ELF_MAGIC)
+    if (ph_addr.type != ELF_PROG_LOAD)
+      continue;
+    if (ph_addr.memsz < ph_addr.filesz)
     {
-        panic("do_exec: not an elf file.\n");
+      panic("memsz < filesz error.\n");
     }
-    elf_prog_header ph_addr;
-    for (int i = 0, off = ehdr.phoff; i < ehdr.phnum; i++, off += sizeof(ph_addr))
+    if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr)
     {
-        do_lseek(fp,off,SEEK_SET);
-        if (do_read(fp,(char*)&ph_addr,sizeof(ph_addr)) != sizeof(ph_addr))
-        {
-            panic("read elf program header error\n");
-        }
-        if (ph_addr.type != ELF_PROG_LOAD)
-            continue;
-        if (ph_addr.memsz < ph_addr.filesz)
-        {
-            panic("memsz < filesz error.\n");
-        }
-        if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr)
-        {
-            panic("vaddr + memsz < vaddr error.\n");
-        }
-        void *pa = alloc_page(); // 分配一页内存
-        memset(pa, 0, PGSIZE);
-        user_vm_map((pagetable_t)p->pagetable, ph_addr.vaddr, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1));
-        do_lseek(fp,ph_addr.off,SEEK_SET);
-        if (do_read(fp,pa,ph_addr.filesz) != ph_addr.filesz)
-        {
-            panic("read program segment error.\n");
-        }
-        int pos = p->total_mapped_region;
-        p->mapped_info[pos].va = ph_addr.vaddr;
-        p->mapped_info[pos].npages = 1;
+      panic("vaddr + memsz < vaddr error.\n");
+    }
+    void *pa = alloc_page(); // 分配一页内存
+    memset(pa, 0, PGSIZE);
+    user_vm_map((pagetable_t)p->pagetable, ph_addr.vaddr, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1));
+    do_lseek(fp, ph_addr.off, SEEK_SET);
+    if (do_read(fp, pa, ph_addr.filesz) != ph_addr.filesz)
+    {
+      panic("read program segment error.\n");
+    }
+    int pos = p->total_mapped_region;
+    p->mapped_info[pos].va = ph_addr.vaddr;
+    p->mapped_info[pos].npages = 1;
 
-        // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
-        if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_EXECUTABLE))
-        {
-            p->mapped_info[pos].seg_type = CODE_SEGMENT;
-            sprint("CODE_SEGMENT added at mapped info offset:%d\n", pos);
-        }
-        else if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_WRITABLE))
-        {
-            p->mapped_info[pos].seg_type = DATA_SEGMENT;
-            sprint("DATA_SEGMENT added at mapped info offset:%d\n", pos);
-        }
-        else
-            panic("unknown program segment encountered, segment flag:%d.\n", ph_addr.flags);
-
-        p->total_mapped_region++;
+    // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
+    if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_EXECUTABLE))
+    {
+      p->mapped_info[pos].seg_type = CODE_SEGMENT;
+      sprint("CODE_SEGMENT added at mapped info offset:%d\n", pos);
     }
-    p->trapframe->epc = ehdr.entry;
-    sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
+    else if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_WRITABLE))
+    {
+      p->mapped_info[pos].seg_type = DATA_SEGMENT;
+      sprint("DATA_SEGMENT added at mapped info offset:%d\n", pos);
+    }
+    else
+      panic("unknown program segment encountered, segment flag:%d.\n", ph_addr.flags);
+
+    p->total_mapped_region++;
+  }
+  p->trapframe->epc = ehdr.entry;
+  sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }
-
 
 int do_exec(char *path)
 {
-    exec_clean(current);
-    exec_bincode(current, path);
-    return -1;
+  char path_copy[50];
+  strcpy(path_copy, path);
+  exec_clean(current);
+  exec_bincode(current, path_copy);
+  return -1;
 }

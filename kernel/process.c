@@ -269,7 +269,7 @@ int do_fork(process *parent)
   return child->pid;
 }
 
-static void proc_clean_pagetable(process *p)
+void proc_clean_pagetable(process *p)
 {
   int total_mapped_region = p->total_mapped_region;
   for (int i = 0; i < total_mapped_region; i++)
@@ -285,20 +285,22 @@ static void proc_clean_pagetable(process *p)
     {
       pte_t *pte;
       uint64 va = p->mapped_info[i].va;
-      uint64 size = p->mapped_info[i].npages * PGSIZE;
+      int64 size = p->mapped_info[i].npages;
       while (size > 0)
       {
         pte = page_walk(p->pagetable, va, 0);
-        if (((*pte & PTE_W) && (*pte & PTE_V)))
+        if (((*pte & PTE_W) && (*pte & PTE_V)) )
         {
-          free_page((void *)PTE2PA(*pte));
+          uint64 pa = PTE2PA(*pte);
+          free_page((void *)pa);
           *pte &= ~PTE_V;
         }
         va += PGSIZE;
-        size -= PGSIZE;
+        size -= 1;
       }
     }
   }
+
 }
 
 void exec_clean(process *p)
@@ -311,15 +313,12 @@ void exec_clean(process *p)
   memset(p->trapframe, 0, sizeof(trapframe));
 
   // page directory
-  p->pagetable = (pagetable_t)alloc_page();
   memset((void *)p->pagetable, 0, PGSIZE);
 
-  p->kstack = (uint64)alloc_page() + PGSIZE; // user kernel stack top
   uint64 user_stack = (uint64)alloc_page();  // phisical address of user stack bottom
   p->trapframe->regs.sp = USER_STACK_TOP;    // virtual address of user stack top
 
   // allocates a page to record memory regions (segments)
-  p->mapped_info = (mapped_region *)alloc_page();
   memset(p->mapped_info, 0, PGSIZE);
 
   // map user stack in userspace
