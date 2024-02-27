@@ -269,7 +269,6 @@ int do_fork(process *parent)
   return child->pid;
 }
 
-// 根据alloc_process函数改写
 static void proc_clean_pagetable(process *p)
 {
   int total_mapped_region = p->total_mapped_region;
@@ -290,7 +289,7 @@ static void proc_clean_pagetable(process *p)
       while (size > 0)
       {
         pte = page_walk(p->pagetable, va, 0);
-        if ((*pte & PTE_W))
+        if (((*pte & PTE_W) && (*pte & PTE_V)))
         {
           free_page((void *)PTE2PA(*pte));
           *pte &= ~PTE_V;
@@ -305,7 +304,7 @@ static void proc_clean_pagetable(process *p)
 void exec_clean(process *p)
 {
   // 释放原先内存
-   proc_clean_pagetable(p);
+  proc_clean_pagetable(p);
 
   // init proc[i]'s vm space
   p->trapframe = (trapframe *)alloc_page(); // trapframe, used to save context
