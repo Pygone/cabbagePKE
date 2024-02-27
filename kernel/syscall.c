@@ -59,7 +59,6 @@ uint64 sys_user_allocate_page() {
   }
   user_vm_map((pagetable_t)current->pagetable, va, PGSIZE, (uint64)pa,
          prot_to_type(PROT_WRITE | PROT_READ, 1));
-
   return va;
 }
 
@@ -92,7 +91,20 @@ ssize_t sys_user_yield() {
 	current->status = READY;
 	insert_to_ready_queue(current);
 	schedule();
+  return 0;
+}
 
+int sys_user_sem_init(int sem) {
+  return sem_init(sem);
+}
+
+ssize_t sys_user_sem_acquire(uint64 sem) {
+  __acquire(sem);
+  return 0;
+}
+
+ssize_t sys_user_sem_release(uint64 sem) {
+  __release(sem);
   return 0;
 }
 
@@ -115,6 +127,12 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_fork();
     case SYS_user_yield:
       return sys_user_yield();
+    case SYS_user_sem_init:
+      return sys_user_sem_init(a1);
+    case SYS_user_sem_P:
+      return sys_user_sem_acquire(a1);
+    case SYS_user_sem_V:
+      return sys_user_sem_release(a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }

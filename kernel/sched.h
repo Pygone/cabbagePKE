@@ -9,4 +9,9 @@
 void insert_to_ready_queue( process* proc );
 void schedule();
 
+#define SEM_MAX 100
+int sem_init(int val);
+void __acquire(uint64 sem);
+void __release(uint64 sem);
+
 #endif
