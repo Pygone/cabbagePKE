@@ -9,7 +9,6 @@ void naive_free(void* va);
 int fork();
 void yield();
 
-// ADD
 int sem_new(int sem);
 void sem_P(int sem);
 void sem_V(int sem);
