@@ -61,7 +61,6 @@ void print_error_line(const uint64 mepc) {
     struct stat st;
     for (int i = 0; i < current->line_ind; i++) {
         if (current->line[i].addr > mepc) {
-            if (current->line[i].addr <= mepc) continue;
             char *dir = current->dir[current->file[current->line[i - 1].file].dir];
             char *file = current->file[current->line[i - 1].file].file;
             const int line = current->line[i - 1].line;

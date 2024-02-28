@@ -300,9 +300,8 @@ static elf_status elf_load_debug_info(elf_ctx *ctx) {
         // 获取节区类型
         const uint32 type = section_header.type;
         // 如果是符号表，保存符号表头部
-        // sprint("section name: %s\n %x", str_table + section_header.name, type);
         if (type == 0x1 && strcmp(str_table + section_header.name, ".debug_line") == 0) {
-            elf_fpread(ctx, (void *) &debug_line, section_header.size, section_header.offset);
+            elf_fpread(ctx, (void *) debug_line, section_header.size, section_header.offset);
             make_addr_line(ctx, debug_line, section_header.size);
         }
     }
