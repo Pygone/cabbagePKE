@@ -316,6 +316,7 @@ static void exec_bincode(process *p, char *path)
 
     p->total_mapped_region++;
   }
+  do_close(fp);
   p->trapframe->epc = ehdr.entry;
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }
