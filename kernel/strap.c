@@ -67,17 +67,14 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // hint: first allocate a new physical page, and then, maps the new page to the
       // virtual address that causes the page fault.
 	{
-		// Allocate a new physical page
-		struct Page *new_page = alloc_page();
-		if (!new_page) {
-			panic("Page allocation failed.\n");
-		}
+		 void* pa = alloc_page();
+        pte_t* pte = page_walk(current->pagetable, stval, 1);
+        if ((RSW((*pte))) == 1) {
+          uint64 origin_pa = PTE2PA(*pte);
+          free_page((void*)origin_pa); // 尝试释放掉原来的内存
+        }
+        *pte = PA2PTE(pa) | PTE_V | prot_to_type(PROT_WRITE | PROT_READ, 1);
 
-		// Map the new page to the virtual address that caused the page fault
-		if (map_pages(current->pagetable, ROUNDDOWN(stval,PGSIZE), PGSIZE, (uint64)new_page, prot_to_type(
-				PROT_WRITE | PROT_READ, 1)) != 0) {
-			panic("Page mapping failed.\n");
-		}
 
 		break;
 	}
