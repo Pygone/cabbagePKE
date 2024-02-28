@@ -10,3 +10,7 @@ obj/
 .VSCodeCounter/
 .vscode/
 pke_out.txt
+.idea
+hostfs_root
+build
+.cache
