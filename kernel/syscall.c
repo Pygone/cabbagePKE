@@ -30,6 +30,15 @@ ssize_t sys_user_print(const char *buf, size_t n)
   return 0;
 }
 
+ssize_t sys_user_gets(char *buf, size_t n)
+{
+  // buf is now an address in user space of the given app's user stack,
+  // so we have to transfer it into phisical address (kernel is running in direct mapping).
+  assert(current);
+  char *pa = (char *)user_va_to_pa((pagetable_t)(current->pagetable), (void *)buf);
+  ssize_t res = spike_file_read(stdin, pa, n);
+  return res;
+}
 //
 // implement the SYS_user_exit syscall
 //
@@ -309,6 +318,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
     return sys_user_exec((char *)a1, (char *)a2);
   case SYS_user_wait:
     return sys_user_wait(a1);
+  case SYS_user_gets:
+    return sys_user_gets((char *)a1, a2);
   default:
     panic("Unknown syscall %ld \n", a0);
   }

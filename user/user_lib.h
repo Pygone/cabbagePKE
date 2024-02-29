@@ -36,4 +36,6 @@ int unlink_u(const char *fn);
 int exec(const char* path, char *arg);
 
 int wait(const int pid);
+
+int gets(char *buf, int n);
 #endif

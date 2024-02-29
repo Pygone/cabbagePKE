@@ -7,38 +7,49 @@
 #include "string.h"
 #include "util/types.h"
 
+void get_args(char *cmd, char *args, char*exec_cmd) {
+  int i = 0 , j = 0;
+  while (cmd[i] != ' ' && cmd[i] != '\0') {
+    exec_cmd[i] = cmd[i];
+    i++;
+  }
+  if (cmd[i] == '\0') {
+    args[0] = '\0';
+    return;
+  }
+  i++;
+  j = 0;
+  while (cmd[i] != '\0') {
+    args[j] = cmd[i];
+    i++;
+    j++;
+  }
+  args[j] = '\0';
+}
+
+
 int main(int argc, char *argv[]) {
   printu("\n======== Shell Start ========\n\n");
   int fd;
   int MAXBUF = 1024;
-  char buf[MAXBUF];
-  char *token;
-  char delim[3] = " \n";
-  fd = open("/shellrc", O_RDONLY);
-
-  read_u(fd, buf, MAXBUF);
-  close(fd);
-  char *command = naive_malloc();
-  char *para = naive_malloc();
-  int start = 0;
+  char cmd[MAXBUF],arg[MAXBUF],exec_cmd[MAXBUF];
   while (1)
   {
-    if(!start) {
-      token = strtok(buf, delim);
-      start = 1;
-    }
-    else 
-      token = strtok(NULL, delim);
-    strcpy(command, token);
-    token = strtok(NULL, delim);
-    strcpy(para, token);
-    if(strcmp(command, "END") == 0 && strcmp(para, "END") == 0)
+    printu("shell> ");
+    int n = gets(cmd, MAXBUF);
+    if (n == 0) {
+      printu("EOF\n");
       break;
-    printu("Next command: %s %s\n\n", command, para);
-    printu("==========Command Start============\n\n");
+    }
+    get_args(cmd, arg, exec_cmd);
+    printu("exec_cmd: %s\n", cmd);
+    if (strncmp(cmd, "exit",4) == 0) {
+      printu("exit\n");
+      break;
+    }
     int pid = fork();
     if(pid == 0) {
-      int ret = exec(command, para);
+      int ret = exec(exec_cmd, arg);;
       if (ret == -1)
       printu("exec failed!\n");
     }

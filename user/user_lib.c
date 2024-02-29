@@ -197,3 +197,8 @@ int wait(const int pid)
 {
   return do_user_call(SYS_user_wait, pid, 0, 0, 0, 0, 0, 0);
 }
+
+int gets(char *buf, int len)
+{
+  return do_user_call(SYS_user_gets, (uint64)buf, len, 0, 0, 0, 0, 0);
+}
