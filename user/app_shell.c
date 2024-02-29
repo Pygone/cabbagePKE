@@ -6,20 +6,21 @@
 #include "user_lib.h"
 #include "string.h"
 #include "util/types.h"
-
+char env[] = "/:/bin:";
 void get_args(char *cmd, char *args, char*exec_cmd) {
   int i = 0 , j = 0;
-  while (cmd[i] != ' ' && cmd[i] != '\0') {
+  while (cmd[i] != ' ' && cmd[i] != '\0' && cmd[i] != '\n') {
     exec_cmd[i] = cmd[i];
     i++;
   }
-  if (cmd[i] == '\0') {
+  exec_cmd[i] = '\0';
+  if (cmd[i] == '\0' || cmd[i] == '\n') {
     args[0] = '\0';
     return;
   }
   i++;
   j = 0;
-  while (cmd[i] != '\0') {
+  while (cmd[i] != '\0' && cmd[i] != '\n') {
     args[j] = cmd[i];
     i++;
     j++;
@@ -32,7 +33,10 @@ int main(int argc, char *argv[]) {
   printu("\n======== Shell Start ========\n\n");
   int fd;
   int MAXBUF = 1024;
-  char cmd[MAXBUF],arg[MAXBUF],exec_cmd[MAXBUF];
+  // char cmd[MAXBUF],arg[MAXBUF],exec_cmd[MAXBUF];
+  char *cmd = naive_malloc();
+  char *arg = naive_malloc();
+  char *exec_cmd = naive_malloc();
   while (1)
   {
     printu("shell> ");
@@ -42,21 +46,20 @@ int main(int argc, char *argv[]) {
       break;
     }
     get_args(cmd, arg, exec_cmd);
-    printu("exec_cmd: %s\n", cmd);
     if (strncmp(cmd, "exit",4) == 0) {
       printu("exit\n");
       break;
     }
+    memset(cmd, 0, MAXBUF);
     int pid = fork();
     if(pid == 0) {
-      int ret = exec(exec_cmd, arg);;
+      int ret = exec(exec_cmd, arg);
       if (ret == -1)
       printu("exec failed!\n");
     }
     else
     {
       wait(pid);
-      printu("==========Command End============\n\n");
     }
   }
   exit(0);

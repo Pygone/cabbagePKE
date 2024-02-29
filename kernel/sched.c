@@ -11,7 +11,6 @@ process* ready_queue_head = NULL;
 // insert a process, proc, into the END of ready queue.
 //
 void insert_to_ready_queue( process* proc ) {
-  sprint( "going to insert process %d to ready queue.\n", proc->pid );
   // if the queue is empty in the beginning
   if( ready_queue_head == NULL ){
     proc->status = READY;
@@ -68,6 +67,5 @@ void schedule() {
   ready_queue_head = ready_queue_head->queue_next;
 
   current->status = RUNNING;
-  sprint( "going to schedule process %d to run.\n", current->pid );
   switch_to( current );
 }

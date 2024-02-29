@@ -44,7 +44,6 @@ ssize_t sys_user_gets(char *buf, size_t n)
 //
 ssize_t sys_user_exit(uint64 code)
 {
-  sprint("User exit with code:%d.\n", code);
   // reclaim the current process, and reschedule. added @lab3_1
   free_process(current);
   schedule();
@@ -95,7 +94,6 @@ uint64 sys_user_free_page(uint64 va)
 //
 ssize_t sys_user_fork()
 {
-  sprint("User call fork.\n");
   return do_fork(current);
 }
 

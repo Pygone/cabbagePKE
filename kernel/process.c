@@ -142,8 +142,6 @@ process *alloc_process()
   procs[i].mapped_info[SYSTEM_SEGMENT].npages = 1;
   procs[i].mapped_info[SYSTEM_SEGMENT].seg_type = SYSTEM_SEGMENT;
 
-  sprint("in alloc_proc. user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n",
-         procs[i].trapframe, procs[i].trapframe->regs.sp, procs[i].kstack);
 
   // initialize the process's heap manager
   procs[i].user_heap.heap_top = USER_FREE_ADDRESS_START;
@@ -159,7 +157,6 @@ process *alloc_process()
 
   // initialize files_struct
   procs[i].pfiles = init_proc_file_management();
-  sprint("in alloc_proc. build proc_file_management successfully.\n");
 
   // return after initialization.
   return &procs[i];
@@ -199,7 +196,6 @@ int free_process(process *proc)
 //
 int do_fork(process *parent)
 {
-  sprint("will fork a child from parent %d.\n", parent->pid);
   process *child = alloc_process();
 
   for (int i = 0; i < parent->total_mapped_region; i++)

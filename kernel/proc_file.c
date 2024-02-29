@@ -51,7 +51,6 @@ proc_file_management *init_proc_file_management(void)
   for (int fd = 0; fd < MAX_FILES; ++fd)
     pfiles->opened_files[fd].status = FD_NONE;
 
-  sprint("FS: created a file management struct for a process.\n");
   return pfiles;
 }
 
@@ -261,7 +260,6 @@ int do_exec(char *path, char *arg)
   int args_len = strlen(arg);
   strcpy(pth, path);
   strcpy(args, arg);
-  sprint("%s\n%s\n",pth,args);
   exec_clean(current);
   uint64 argv_va = current->trapframe->regs.sp - args_len - 1;
   argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
