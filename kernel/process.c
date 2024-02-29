@@ -273,14 +273,18 @@ int do_fork(process *parent)
 
 void proc_clean_pagetable(process *p)
 {
+
   int total_mapped_region = p->total_mapped_region;
   for (int i = 0; i < total_mapped_region; i++)
   {
     if (p->mapped_info[i].seg_type == HEAP_SEGMENT)
     { // 从后往前分配, 故要从后往前释放
+      uint64 top = p->user_heap.heap_top - PGSIZE;
       for (int j = 0; j < p->mapped_info[i].npages; j++)
       {
-        free_page((void *)p->user_heap.free_pages_address[MAX_HEAP_PAGES - 1 - j]);
+        uint64 pa = lookup_pa(p->pagetable, top);
+        top -= PGSIZE;
+        free_page((void *)pa);
       }
     }
     else
@@ -291,7 +295,7 @@ void proc_clean_pagetable(process *p)
       while (size > 0)
       {
         pte = page_walk(p->pagetable, va, 0);
-        if (((*pte & PTE_W) && (*pte & PTE_V)) )
+        if (((*pte & PTE_W) && (*pte & PTE_V)))
         {
           uint64 pa = PTE2PA(*pte);
           free_page((void *)pa);
@@ -302,7 +306,6 @@ void proc_clean_pagetable(process *p)
       }
     }
   }
-
 }
 
 void exec_clean(process *p)
