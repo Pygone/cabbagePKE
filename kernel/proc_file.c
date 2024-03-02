@@ -255,11 +255,19 @@ int do_unlink(char *path)
 
 int do_exec(char *path, char *arg)
 {
-  
+  // check file
+  struct file *fp = vfs_open(path, O_RDONLY);
+  if (fp == NULL)
+    return -1;
+  else
+  {
+    vfs_close(fp);
+  }
   char pth[128], args[128];
   int args_len = strlen(arg);
   strcpy(pth, path);
   strcpy(args, arg);
+  uint64 epc = current->trapframe->epc;
   exec_clean(current);
   uint64 argv_va = current->trapframe->regs.sp - args_len - 1;
   argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
@@ -274,7 +282,8 @@ int do_exec(char *path, char *arg)
   current->trapframe->regs.a0 = 1;                        // 设置argc的值(此处为1)
   current->trapframe->regs.a1 = argvs_va;                 // 设置argv的值
   current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
-
   load_bincode_from_host_elf(current, pth);
+  if (current->trapframe->regs.a1 == -1)
+    current->trapframe->epc = epc;
   return -1;
 }
