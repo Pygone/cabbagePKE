@@ -40,6 +40,9 @@
 #define SYS_user_sem_P (SYS_user_base + 34)
 #define SYS_user_sem_V (SYS_user_base + 35)
 
+#define SYS_user_malloc (SYS_user_base + 36)
+#define SYS_user_free (SYS_user_base + 37)
+
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, long a7);
 
 #endif

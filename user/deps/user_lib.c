@@ -154,3 +154,13 @@ int sem_new(int sem) { return do_user_call(SYS_user_sem_init, sem, 0, 0, 0, 0, 0
 void sem_P(int sem) { do_user_call(SYS_user_sem_P, sem, 0, 0, 0, 0, 0, 0); }
 
 void sem_V(int sem) { do_user_call(SYS_user_sem_V, sem, 0, 0, 0, 0, 0, 0); }
+
+//
+// lib call to better_malloc
+//
+void *better_malloc(int n) { return (void *)do_user_call(SYS_user_malloc, n, 0, 0, 0, 0, 0, 0); }
+
+//
+// lib call to better_free
+//
+void better_free(void *va) { do_user_call(SYS_user_free, (uint64)va, 0, 0, 0, 0, 0, 0); }

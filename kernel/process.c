@@ -434,16 +434,20 @@ void exec_clean(process *p)
     // map user heap in userspace
     p->mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START;
     p->mapped_info[HEAP_SEGMENT].npages = 0; // no pages are mapped to heap yet.
-  p->mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
+    p->mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
 
-  p->total_mapped_region = 4;
+    p->total_mapped_region = 4;
 }
 
-void print_error_line(const uint64 mepc) {
+void print_error_line(const uint64 mepc)
+{
     struct stat st;
-    for (int i = 0; i < current->line_ind; i++) {
-        if (current->line[i].addr > mepc) {
-            if (current->line[i].addr <= mepc) continue;
+    for (int i = 0; i < current->line_ind; i++)
+    {
+        if (current->line[i].addr > mepc)
+        {
+            if (current->line[i].addr <= mepc)
+                continue;
             char *dir = current->dir[current->file[current->line[i - 1].file].dir];
             char *file = current->file[current->line[i - 1].file].file;
             const int line = current->line[i - 1].line;
@@ -462,9 +466,12 @@ void print_error_line(const uint64 mepc) {
             spike_file_close(fp);
             int idx = 0;
             int cnt = 0;
-            while (idx < st.st_size) {
-                if (buf[idx] == '\n' && ++cnt == line - 1) {
-                    for (int j = idx + 1; j < st.st_size && buf[j] != '\n'; j++) {
+            while (idx < st.st_size)
+            {
+                if (buf[idx] == '\n' && ++cnt == line - 1)
+                {
+                    for (int j = idx + 1; j < st.st_size && buf[j] != '\n'; j++)
+                    {
                         sprint("%c", buf[j]);
                     }
                     break;
@@ -475,4 +482,156 @@ void print_error_line(const uint64 mepc) {
             break;
         }
     }
+}
+
+void try_alloc_free_block()
+{
+    if (current->first_free_block == 0)
+    {
+        uint64 page = (uint64)alloc_page();
+        uint64 va = current->user_heap.heap_top;
+        current->user_heap.heap_top += PGSIZE;
+        current->mapped_info[HEAP_SEGMENT].npages++;
+        memset((void *)page, 0, PGSIZE);
+        user_vm_map(current->pagetable, va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)va));
+        head->capacity = PGSIZE;
+        head->next = 0;
+        current->first_free_block = va;
+    }
+}
+
+void *alloc_from_new_block(uint64 n)
+{
+    uint64 need_size = n + sizeof(block_head);
+    uint64 need_pages = (need_size + PGSIZE - 1) / PGSIZE; // 向上取整
+    // 先利用va最大的block, 然后再继续分配block, 保证内存分配的连续性
+    uint64 cur = current->first_free_block;
+    uint64 max_va = 0, pre = 0, max_pre = 0;
+    while (cur != 0)
+    {
+        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)cur));
+        if (cur > max_va)
+        {
+            max_pre = pre;
+            max_va = cur;
+        }
+        pre = cur;
+        cur = head->next;
+    }
+    block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)max_va));
+
+    uint64 capacity = head->capacity;
+    uint64 next = head->next;
+    head->next = 0;
+    head->capacity = need_size;
+    need_size -= capacity;
+    uint64 last_va = 0;
+    do
+    {
+        uint64 page = (uint64)alloc_page();
+        last_va = current->user_heap.heap_top;
+        current->user_heap.heap_top += PGSIZE;
+        current->mapped_info[HEAP_SEGMENT].npages++;
+        memset((void *)page, 0, PGSIZE);
+        user_vm_map(current->pagetable, last_va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        if (need_size > PGSIZE)
+            need_size -= PGSIZE;
+    }
+    while (need_size > PGSIZE);
+    if (need_size != 0)
+    { // 最后一个page没用完, 分配新的head, 给剩余空间
+        uint64 ALIGN = need_size % sizeof(block_head);
+        if (ALIGN != 0)
+        {
+            need_size += sizeof(block_head) - ALIGN;
+        }
+        block_head *last_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)(last_va + need_size)));
+        last_head->capacity = PGSIZE - need_size;
+        last_head->next = next;
+        // get head pre
+        block_head *max_pre_head;
+        if (max_pre != 0)
+        {
+            max_pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)max_pre));
+            max_pre_head->next = last_va + need_size;
+        }
+        else
+            current->first_free_block = last_va + need_size;
+    }
+    return (void *)(max_va + sizeof(block_head));
+}
+
+void *alloc_from_free_block(uint64 n)
+{
+    uint64 need_size = n + sizeof(block_head);
+    uint64 need_pages = (need_size + PGSIZE - 1) / PGSIZE; // 向上取整
+    uint64 cur = current->first_free_block;
+    uint64 pre = 0;
+    while (cur != 0)
+    {
+        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)cur));
+        uint64 capacity = head->capacity;
+        if (capacity >= need_size)
+        { // 剩余block 足够填充
+            if (capacity == need_size)
+            { // 恰好填充完, 更新free_block
+                if (pre == 0)
+                { // 说明是第一个block
+                    current->first_free_block = head->next;
+                }
+                else
+                {
+                    block_head *pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)pre));
+                    pre_head->next = head->next;
+                }
+                return (void *)(cur + sizeof(block_head));
+            }
+            else
+            { // 剩余block 大于需要的block, 更新first_free_block
+                uint64 ALIGN = need_size % sizeof(block_head);
+                if (ALIGN != 0)
+                {
+                    need_size += sizeof(block_head) - ALIGN;
+                }
+                head->capacity = need_size;
+                uint64 va = cur + need_size;
+                block_head *new_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)va));
+                new_head->capacity = capacity - need_size;
+                new_head->next = head->next;
+                if (pre == 0)
+                { // 说明是第一个block
+                    current->first_free_block = va;
+                }
+                else
+                {
+                    block_head *pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)pre));
+                    pre_head->next = va;
+                }
+                return (void *)(cur + sizeof(block_head));
+            }
+        }
+        else
+        {
+            pre = cur;
+            cur = head->next;
+        }
+    }
+    // 所有block 都不满足
+    return alloc_from_new_block(n);
+}
+
+void *vm_malloc(uint64 n)
+{
+    void *va = NULL;
+    try_alloc_free_block();
+    va = alloc_from_free_block(n);
+    return (void *)va;
+}
+
+void vm_free(uint64 va)
+{
+    block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)(va - sizeof(block_head))));
+    head->next = current->first_free_block;
+    current->first_free_block = va - sizeof(block_head);
 }

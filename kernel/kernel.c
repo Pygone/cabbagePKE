@@ -80,6 +80,7 @@ process *load_user_program()
         panic("You need to specify the application program!\n");
 
     load_bincode_from_host_elf(proc, arg_bug_msg.argv[0]);
+    proc->first_free_block = 0;
     return proc;
 }
 

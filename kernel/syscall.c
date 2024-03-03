@@ -260,6 +260,16 @@ ssize_t sys_user_sem_release(uint64 sem)
     return 0;
 }
 
+// ADD:lab2_challenge2
+uint64 sys_user_malloc(uint64 n) {
+    return (uint64)vm_malloc(n);
+}
+
+uint64 sys_user_free(uint64 va) {
+    vm_free(va);
+    return 0;
+}
+
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
@@ -322,6 +332,10 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
         return sys_user_sem_acquire(a1);
     case SYS_user_sem_V:
         return sys_user_sem_release(a1);
+    case SYS_user_malloc:
+        return sys_user_malloc(a1); // a1为申请的字节数
+    case SYS_user_free:
+        return sys_user_free(a1); // a1为虚拟地址
     default:
         panic("Unknown syscall %ld \n", a0);
     }

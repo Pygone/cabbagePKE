@@ -3,6 +3,10 @@
 
 #include "proc_file.h"
 #include "riscv.h"
+typedef struct block_head {
+    uint64 capacity; // 内存块大小
+    uint64 next; // 下一个空闲块的地址
+}block_head;
 
 typedef struct trapframe_t
 {
@@ -117,7 +121,7 @@ typedef struct process_t
     code_file *file;
     addr_line *line;
     int line_ind;
-
+    uint64 first_free_block;
 } process;
 
 
@@ -139,5 +143,9 @@ void exec_clean(process *p);
 // current running process
 extern process *current;
 void print_error_line(uint64 mepc);
+
+void* vm_malloc(uint64 n);
+
+void vm_free(uint64 va);
 
 #endif
