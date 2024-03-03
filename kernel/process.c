@@ -438,3 +438,41 @@ void exec_clean(process *p)
 
   p->total_mapped_region = 4;
 }
+
+void print_error_line(const uint64 mepc) {
+    struct stat st;
+    for (int i = 0; i < current->line_ind; i++) {
+        if (current->line[i].addr > mepc) {
+            if (current->line[i].addr <= mepc) continue;
+            char *dir = current->dir[current->file[current->line[i - 1].file].dir];
+            char *file = current->file[current->line[i - 1].file].file;
+            const int line = current->line[i - 1].line;
+            sprint("Runtime error at %s/%s:%d\n", dir, file, line);
+            char filename[256];
+            char *p = filename;
+            strcpy(p, current->dir[current->file[current->line[i - 1].file].dir]);
+            p += strlen(p);
+            p[0] = '/', p[1] = 0;
+            p += 1;
+            strcpy(p, current->file[current->line[i - 1].file].file);
+            spike_file_t *fp = spike_file_open(filename, O_RDONLY, 0);
+            spike_file_stat(fp, &st);
+            char buf[st.st_size];
+            spike_file_read(fp, buf, st.st_size);
+            spike_file_close(fp);
+            int idx = 0;
+            int cnt = 0;
+            while (idx < st.st_size) {
+                if (buf[idx] == '\n' && ++cnt == line - 1) {
+                    for (int j = idx + 1; j < st.st_size && buf[j] != '\n'; j++) {
+                        sprint("%c", buf[j]);
+                    }
+                    break;
+                }
+                idx++;
+            }
+            sprint("\n");
+            break;
+        }
+    }
+}
