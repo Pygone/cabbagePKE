@@ -65,6 +65,15 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval)
         {
             // Allocate a new physical page
             void *pa = alloc_page();
+            if (pa == NULL)
+            {
+                panic("alloc_page failed.\n");
+            }
+            // 判断逻辑地址是否在栈的范围内s
+            if (stval < current->trapframe->regs.sp - PGSIZE)
+            {
+                panic("this address is not available!");
+            }
             pte_t *pte = page_walk(current->pagetable, stval, 1);
             if ((RSW((*pte))) == 1)
             {
