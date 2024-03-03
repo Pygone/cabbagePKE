@@ -91,7 +91,7 @@ struct file *get_opened_file(int fd)
 int do_open(char *pathname, int flags)
 {
     struct file *opened_file = NULL;
-    if ((opened_file = vfs_open(pathname, flags)) == NULL)
+    if ((opened_file = vfs_open(pathname, flags,current->pfiles->cwd)) == NULL)
         return -1;
 
     int fd = 0;
@@ -190,7 +190,7 @@ int do_close(int fd)
 int do_opendir(char *pathname)
 {
     struct file *opened_file = NULL;
-    if ((opened_file = vfs_opendir(pathname)) == NULL)
+    if ((opened_file = vfs_opendir(pathname,current->pfiles->cwd)) == NULL)
         return -1;
 
     int fd = 0;
@@ -223,7 +223,7 @@ int do_readdir(int fd, struct dir *dir)
 //
 // make a new directory
 //
-int do_mkdir(char *pathname) { return vfs_mkdir(pathname); }
+int do_mkdir(char *pathname) { return vfs_mkdir(pathname,current->pfiles->cwd); }
 
 //
 // close a directory
@@ -237,17 +237,17 @@ int do_closedir(int fd)
 //
 // create hard link to a file
 //
-int do_link(char *oldpath, char *newpath) { return vfs_link(oldpath, newpath); }
+int do_link(char *oldpath, char *newpath) { return vfs_link(oldpath, newpath,current->pfiles->cwd); }
 
 //
 // remove a hard link to a file
 //
-int do_unlink(char *path) { return vfs_unlink(path); }
+int do_unlink(char *path) { return vfs_unlink(path,current->pfiles->cwd); }
 
 int do_exec(char *path, char *arg)
 {
     // check file
-    struct file *fp = vfs_open(path, O_RDONLY);
+    struct file *fp = vfs_open(path, O_RDONLY, current->pfiles->cwd);
     if (fp == NULL)
         return -1;
     else
@@ -278,4 +278,44 @@ int do_exec(char *path, char *arg)
   if (current->trapframe->regs.a1 == -1)
     current->trapframe->epc = epc;
   return -1;
+}
+int do_read_cwd(char* path)
+{
+    char path_copy[MAX_PATH_LEN];
+    struct dentry* cwd = current->pfiles->cwd;
+    struct dentry* parent = cwd->parent;
+    strcpy(path, cwd->name);
+    if (parent == NULL) {
+        return 0;
+    } else {
+        while (parent != NULL) {
+            strcpy(path_copy, parent->name);
+            strcat(path_copy, path);
+            parent = parent->parent;
+        }
+        strcpy(path, path_copy);
+    }
+    return 0;
+}
+
+int do_change_cwd(char* path)
+{
+    struct dentry* parent = current->pfiles->cwd;
+    char miss_name[MAX_PATH_LEN];
+
+    // lookup the dir, find its parent direntry
+    struct dentry* file_dentry = lookup_final_dentry(path, &parent, miss_name);
+    if (!file_dentry) {
+        sprint("vfs_chdir: the directory does not exist! miss_name: %s\n", miss_name);
+        return -1;
+    }
+
+    if (file_dentry->dentry_inode->type != DIR_I) {
+        sprint("vfs_chdir: cannot change to a file!\n");
+        return -1;
+    }
+
+    current->pfiles->cwd = file_dentry;
+    return 0;
+
 }

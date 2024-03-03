@@ -279,18 +279,32 @@ uint64 sys_user_free(uint64 va)
 ssize_t sys_user_backtrace(uint64 depth)
 {
     uint64 fp = (current->trapframe->regs.s0);
-    uint64 pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)(fp-8));
+    uint64 pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)(fp - 8));
     fp = *(uint64 *)(pa);
-    for (uint64 i = 0; i < depth; i++) {
+    for (uint64 i = 0; i < depth; i++)
+    {
         pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)fp - 8);
         const uint64 ra = *(uint64 *)(pa);
         func_name_printer(ra);
-        fp = *(uint64 *)(pa-8);
-        if (fp == 0) {
+        fp = *(uint64 *)(pa - 8);
+        if (fp == 0)
+        {
             break;
         }
     }
     return 0;
+}
+long sys_user_ccwd(char *pathva)
+{
+    char *pathpa = (char *)user_va_to_pa((pagetable_t)(current->pagetable), pathva);
+    return do_change_cwd(pathpa);
+}
+
+
+long sys_user_rcwd(char *pathva)
+{
+    char *pathpa = (char *)user_va_to_pa((pagetable_t)(current->pagetable), pathva);
+    return do_read_cwd(pathpa);
 }
 
 //
@@ -363,6 +377,10 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
         return sys_user_printpa(a1);
     case SYS_user_backtrace:
         return sys_user_backtrace(a1);
+    case SYS_user_rcwd:
+        return sys_user_rcwd((char *)a1);
+    case SYS_user_ccwd:
+        return sys_user_ccwd((char *)a1);
     default:
         panic("Unknown syscall %ld \n", a0);
     }

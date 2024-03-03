@@ -12,7 +12,14 @@
 #define MAX_SUPPORTED_FS 10       // the maximum number of supported file systems
 
 #define DIRECT_BLKNUM 10          // the number of direct blocks
-
+// vfs abstract dentry
+struct dentry {
+  char name[MAX_DENTRY_NAME_LEN];
+  int d_ref;
+  struct vinode *dentry_inode;
+  struct dentry *parent;
+  struct super_block *sb;
+};
 /**** vfs initialization function ****/
 int vfs_init();
 
@@ -22,34 +29,27 @@ int vfs_init();
 struct super_block *vfs_mount(const char *dev_name, int mnt_type);
 
 // file interfaces
-struct file *vfs_open(const char *path, int flags);
-ssize_t vfs_read(struct file *file, char *buf, size_t count);
-ssize_t vfs_write(struct file *file, const char *buf, size_t count);
-ssize_t vfs_lseek(struct file *file, ssize_t offset, int whence);
-int vfs_stat(struct file *file, struct istat *istat);
-int vfs_disk_stat(struct file *file, struct istat *istat);
-int vfs_link(const char *oldpath, const char *newpath);
-int vfs_unlink(const char *path);
-int vfs_close(struct file *file);
+struct file* vfs_open(const char* path, int flags, struct dentry* parent);
+ssize_t vfs_read(struct file* file, char* buf, size_t count);
+ssize_t vfs_write(struct file* file, const char* buf, size_t count);
+ssize_t vfs_lseek(struct file* file, ssize_t offset, int whence);
+int vfs_stat(struct file* file, struct istat* istat);
+int vfs_disk_stat(struct file* file, struct istat* istat);
+int vfs_link(const char* oldpath, const char* newpath, struct dentry* parent);
+int vfs_unlink(const char* path, struct dentry* parent);
+int vfs_close(struct file* file);
 
 // directory interfaces
-struct file *vfs_opendir(const char *path);
-int vfs_readdir(struct file *file, struct dir *dir);
-int vfs_mkdir(const char *path);
-int vfs_closedir(struct file *file);
+struct file* vfs_opendir(const char* path, struct dentry* parent);
+int vfs_readdir(struct file* file, struct dir* dir);
+int vfs_mkdir(const char* path, struct dentry* parent);
+int vfs_closedir(struct file* file);
 
 /**** vfs abstract object types ****/
 // system root direntry
 extern struct dentry *vfs_root_dentry;
 
-// vfs abstract dentry
-struct dentry {
-  char name[MAX_DENTRY_NAME_LEN];
-  int d_ref;
-  struct vinode *dentry_inode;
-  struct dentry *parent;
-  struct super_block *sb;
-};
+
 
 
 // dentry constructor and destructor

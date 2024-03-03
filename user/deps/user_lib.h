@@ -51,4 +51,8 @@ void printpa(int* va);
 
 // C_1_1
 void print_backtrace(int depth);
+
+// C_4_1
+int read_cwd(char *path);
+int change_cwd(const char *path);
 #endif
