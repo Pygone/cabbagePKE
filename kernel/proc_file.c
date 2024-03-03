@@ -4,6 +4,7 @@
 
 #include "proc_file.h"
 
+#include "elf.h"
 #include "hostfs.h"
 #include "pmm.h"
 #include "process.h"
@@ -14,28 +15,27 @@
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
-#include "elf.h"
 #include "vmm.h"
 //
 // initialize file system
 //
 void fs_init(void)
 {
-  // initialize the vfs
-  vfs_init();
+    // initialize the vfs
+    vfs_init();
 
-  // register hostfs and mount it as the root
-  if (register_hostfs() < 0)
-    panic("fs_init: cannot register hostfs.\n");
-  struct device *hostdev = init_host_device("HOSTDEV");
-  vfs_mount("HOSTDEV", MOUNT_AS_ROOT);
+    // register hostfs and mount it as the root
+    if (register_hostfs() < 0)
+        panic("fs_init: cannot register hostfs.\n");
+    struct device *hostdev = init_host_device("HOSTDEV");
+    vfs_mount("HOSTDEV", MOUNT_AS_ROOT);
 
-  // register and mount rfs
-  if (register_rfs() < 0)
-    panic("fs_init: cannot register rfs.\n");
-  struct device *ramdisk0 = init_rfs_device("RAMDISK0");
-  rfs_format_dev(ramdisk0);
-  vfs_mount("RAMDISK0", MOUNT_DEFAULT);
+    // register and mount rfs
+    if (register_rfs() < 0)
+        panic("fs_init: cannot register rfs.\n");
+    struct device *ramdisk0 = init_rfs_device("RAMDISK0");
+    rfs_format_dev(ramdisk0);
+    vfs_mount("RAMDISK0", MOUNT_DEFAULT);
 }
 
 //
@@ -44,14 +44,14 @@ void fs_init(void)
 //
 proc_file_management *init_proc_file_management(void)
 {
-  proc_file_management *pfiles = (proc_file_management *)alloc_page();
-  pfiles->cwd = vfs_root_dentry; // by default, cwd is the root
-  pfiles->nfiles = 0;
+    proc_file_management *pfiles = (proc_file_management *)alloc_page();
+    pfiles->cwd = vfs_root_dentry; // by default, cwd is the root
+    pfiles->nfiles = 0;
 
-  for (int fd = 0; fd < MAX_FILES; ++fd)
-    pfiles->opened_files[fd].status = FD_NONE;
+    for (int fd = 0; fd < MAX_FILES; ++fd)
+        pfiles->opened_files[fd].status = FD_NONE;
 
-  return pfiles;
+    return pfiles;
 }
 
 //
@@ -60,8 +60,8 @@ proc_file_management *init_proc_file_management(void)
 //
 void reclaim_proc_file_management(proc_file_management *pfiles)
 {
-  free_page(pfiles);
-  return;
+    free_page(pfiles);
+    return;
 }
 
 //
@@ -70,18 +70,18 @@ void reclaim_proc_file_management(proc_file_management *pfiles)
 //
 struct file *get_opened_file(int fd)
 {
-  struct file *pfile = NULL;
+    struct file *pfile = NULL;
 
-  // browse opened file list to locate the fd
-  for (int i = 0; i < MAX_FILES; ++i)
-  {
-    pfile = &(current->pfiles->opened_files[i]); // file entry
-    if (i == fd)
-      break;
-  }
-  if (pfile == NULL)
-    panic("do_read: invalid fd!\n");
-  return pfile;
+    // browse opened file list to locate the fd
+    for (int i = 0; i < MAX_FILES; ++i)
+    {
+        pfile = &(current->pfiles->opened_files[i]); // file entry
+        if (i == fd)
+            break;
+    }
+    if (pfile == NULL)
+        panic("do_read: invalid fd!\n");
+    return pfile;
 }
 
 //
@@ -90,28 +90,28 @@ struct file *get_opened_file(int fd)
 //
 int do_open(char *pathname, int flags)
 {
-  struct file *opened_file = NULL;
-  if ((opened_file = vfs_open(pathname, flags)) == NULL)
-    return -1;
+    struct file *opened_file = NULL;
+    if ((opened_file = vfs_open(pathname, flags)) == NULL)
+        return -1;
 
-  int fd = 0;
-  if (current->pfiles->nfiles >= MAX_FILES)
-  {
-    panic("do_open: no file entry for current process!\n");
-  }
-  struct file *pfile;
-  for (fd = 0; fd < MAX_FILES; ++fd)
-  {
-    pfile = &(current->pfiles->opened_files[fd]);
-    if (pfile->status == FD_NONE)
-      break;
-  }
+    int fd = 0;
+    if (current->pfiles->nfiles >= MAX_FILES)
+    {
+        panic("do_open: no file entry for current process!\n");
+    }
+    struct file *pfile;
+    for (fd = 0; fd < MAX_FILES; ++fd)
+    {
+        pfile = &(current->pfiles->opened_files[fd]);
+        if (pfile->status == FD_NONE)
+            break;
+    }
 
-  // initialize this file structure
-  memcpy(pfile, opened_file, sizeof(struct file));
+    // initialize this file structure
+    memcpy(pfile, opened_file, sizeof(struct file));
 
-  ++current->pfiles->nfiles;
-  return fd;
+    ++current->pfiles->nfiles;
+    return fd;
 }
 
 //
@@ -120,16 +120,16 @@ int do_open(char *pathname, int flags)
 //
 int do_read(int fd, char *buf, uint64 count)
 {
-  struct file *pfile = get_opened_file(fd);
+    struct file *pfile = get_opened_file(fd);
 
-  if (pfile->readable == 0)
-    panic("do_read: no readable file!\n");
+    if (pfile->readable == 0)
+        panic("do_read: no readable file!\n");
 
-  char buffer[count + 1];
-  int len = vfs_read(pfile, buffer, count);
-  buffer[count] = '\0';
-  strcpy(buf, buffer);
-  return len;
+    char buffer[count + 1];
+    int len = vfs_read(pfile, buffer, count);
+    buffer[count] = '\0';
+    strcpy(buf, buffer);
+    return len;
 }
 
 //
@@ -138,13 +138,13 @@ int do_read(int fd, char *buf, uint64 count)
 //
 int do_write(int fd, char *buf, uint64 count)
 {
-  struct file *pfile = get_opened_file(fd);
+    struct file *pfile = get_opened_file(fd);
 
-  if (pfile->writable == 0)
-    panic("do_write: cannot write file!\n");
+    if (pfile->writable == 0)
+        panic("do_write: cannot write file!\n");
 
-  int len = vfs_write(pfile, buf, count);
-  return len;
+    int len = vfs_write(pfile, buf, count);
+    return len;
 }
 
 //
@@ -152,8 +152,8 @@ int do_write(int fd, char *buf, uint64 count)
 //
 int do_lseek(int fd, int offset, int whence)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_lseek(pfile, offset, whence);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_lseek(pfile, offset, whence);
 }
 
 //
@@ -161,8 +161,8 @@ int do_lseek(int fd, int offset, int whence)
 //
 int do_stat(int fd, struct istat *istat)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_stat(pfile, istat);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_stat(pfile, istat);
 }
 
 //
@@ -170,8 +170,8 @@ int do_stat(int fd, struct istat *istat)
 //
 int do_disk_stat(int fd, struct istat *istat)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_disk_stat(pfile, istat);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_disk_stat(pfile, istat);
 }
 
 //
@@ -179,8 +179,8 @@ int do_disk_stat(int fd, struct istat *istat)
 //
 int do_close(int fd)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_close(pfile);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_close(pfile);
 }
 
 //
@@ -189,26 +189,26 @@ int do_close(int fd)
 //
 int do_opendir(char *pathname)
 {
-  struct file *opened_file = NULL;
-  if ((opened_file = vfs_opendir(pathname)) == NULL)
-    return -1;
+    struct file *opened_file = NULL;
+    if ((opened_file = vfs_opendir(pathname)) == NULL)
+        return -1;
 
-  int fd = 0;
-  struct file *pfile;
-  for (fd = 0; fd < MAX_FILES; ++fd)
-  {
-    pfile = &(current->pfiles->opened_files[fd]);
-    if (pfile->status == FD_NONE)
-      break;
-  }
-  if (pfile->status != FD_NONE) // no free entry
-    panic("do_opendir: no file entry for current process!\n");
+    int fd = 0;
+    struct file *pfile;
+    for (fd = 0; fd < MAX_FILES; ++fd)
+    {
+        pfile = &(current->pfiles->opened_files[fd]);
+        if (pfile->status == FD_NONE)
+            break;
+    }
+    if (pfile->status != FD_NONE) // no free entry
+        panic("do_opendir: no file entry for current process!\n");
 
-  // initialize this file structure
-  memcpy(pfile, opened_file, sizeof(struct file));
+    // initialize this file structure
+    memcpy(pfile, opened_file, sizeof(struct file));
 
-  ++current->pfiles->nfiles;
-  return fd;
+    ++current->pfiles->nfiles;
+    return fd;
 }
 
 //
@@ -216,73 +216,65 @@ int do_opendir(char *pathname)
 //
 int do_readdir(int fd, struct dir *dir)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_readdir(pfile, dir);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_readdir(pfile, dir);
 }
 
 //
 // make a new directory
 //
-int do_mkdir(char *pathname)
-{
-  return vfs_mkdir(pathname);
-}
+int do_mkdir(char *pathname) { return vfs_mkdir(pathname); }
 
 //
 // close a directory
 //
 int do_closedir(int fd)
 {
-  struct file *pfile = get_opened_file(fd);
-  return vfs_closedir(pfile);
+    struct file *pfile = get_opened_file(fd);
+    return vfs_closedir(pfile);
 }
 
 //
 // create hard link to a file
 //
-int do_link(char *oldpath, char *newpath)
-{
-  return vfs_link(oldpath, newpath);
-}
+int do_link(char *oldpath, char *newpath) { return vfs_link(oldpath, newpath); }
 
 //
 // remove a hard link to a file
 //
-int do_unlink(char *path)
-{
-  return vfs_unlink(path);
-}
+int do_unlink(char *path) { return vfs_unlink(path); }
 
 int do_exec(char *path, char *arg)
 {
-  // check file
-  struct file *fp = vfs_open(path, O_RDONLY);
-  if (fp == NULL)
-    return -1;
-  else
-  {
-    vfs_close(fp);
-  }
-  char pth[128], args[128];
-  int args_len = strlen(arg);
-  strcpy(pth, path);
-  strcpy(args, arg);
-  uint64 epc = current->trapframe->epc;
-  exec_clean(current);
-  uint64 argv_va = current->trapframe->regs.sp - args_len - 1;
-  argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
-  uint64 argv_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argv_va);
-  strcpy((char *)argv_pa, args);
+    // check file
+    struct file *fp = vfs_open(path, O_RDONLY);
+    if (fp == NULL)
+        return -1;
+    else
+    {
+        vfs_close(fp);
+    }
+    char pth[128], args[128];
+    int args_len = strlen(arg);
+    strcpy(pth, path);
+    strcpy(args, arg);
+    uint64 epc = current->trapframe->epc;
+    exec_clean(current);
+    uint64 argv_va = current->trapframe->regs.sp - args_len - 1;
+    argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
+    uint64 argv_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argv_va);
+    strcpy((char *)argv_pa, args);
 
-  // 二级指针
-  uint64 argvs_va = argv_va - 8; // 因为目前只考虑一个参数，故而一级指针只构建一个，二级指针的位置目前就设定在一级指针后面，并且这一区域的大小刚好只是一个指针的大小
-  uint64 argvs_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argvs_va);
-  *(uint64 *)argvs_pa = argv_va; // 存储一级指针的虚地址
+    // 二级指针
+    uint64 argvs_va = argv_va -
+        8; // 因为目前只考虑一个参数，故而一级指针只构建一个，二级指针的位置目前就设定在一级指针后面，并且这一区域的大小刚好只是一个指针的大小
+    uint64 argvs_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argvs_va);
+    *(uint64 *)argvs_pa = argv_va; // 存储一级指针的虚地址
 
-  current->trapframe->regs.a0 = 1;                        // 设置argc的值(此处为1)
-  current->trapframe->regs.a1 = argvs_va;                 // 设置argv的值
-  current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
-  load_bincode_from_host_elf(current, pth);
+    current->trapframe->regs.a0 = 1; // 设置argc的值(此处为1)
+    current->trapframe->regs.a1 = argvs_va; // 设置argv的值
+    current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
+    load_bincode_from_host_elf(current, pth);
   if (current->trapframe->regs.a1 == -1)
     current->trapframe->epc = epc;
   return -1;

@@ -3,11 +3,12 @@
 #include "util/types.h"
 
 
-int main(int argc, char *argv[]) {
-  char *new_dir = argv[0];
-  mkdir_u(new_dir);
-  printu("mkdir: %s\n", new_dir);
+int main(int argc, char *argv[])
+{
+    char *new_dir = argv[0];
+    mkdir_u(new_dir);
+    printu("mkdir: %s\n", new_dir);
 
-  exit(0);
-  return 0;
+    exit(0);
+    return 0;
 }

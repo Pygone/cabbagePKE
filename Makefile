@@ -17,7 +17,8 @@ clean:
 	@if [ -d "hostfs_root/bin" ]; then rm -r hostfs_root/bin/*; fi
 	@echo "Done"
 
-run:
+run: build
 	@echo "Running cabbageOs"
-	spike build/cabbageOs /bin/app_shell
+	@spike bin/cabbageOS /bin/sh
 	@echo "Done"
+.PHONY:build
