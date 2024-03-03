@@ -12,3 +12,6 @@ obj/
 pke_out.txt
 .idea
 hostfs_root
+build
+bin
+lib

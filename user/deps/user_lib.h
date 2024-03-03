@@ -38,4 +38,10 @@ int exec(const char* path, char *arg);
 int wait(const int pid);
 
 int gets(char *buf, int n);
+
+// C_3_2
+int sem_new(int sem);
+void sem_P(int sem);
+void sem_V(int sem);
+
 #endif
