@@ -284,7 +284,7 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length)
             }
         }
 
-    endop:
+    endop:;
     }
 }
 
@@ -349,8 +349,8 @@ static char debug_line[0x4000];
 static void elf_load_info(elf_ctx *ctx)
 {
     // 定义各种节区头部
-    elf_sect_header sym_section_header;
-    elf_sect_header str_section_header;
+    elf_sect_header sym_section_header = {0};
+    elf_sect_header str_section_header = {0};
     elf_sect_header shstr_section_header;
     elf_sect_header section_header;
 
