@@ -346,8 +346,11 @@ elf_status elf_load(elf_ctx *ctx)
 }
 static char debug_line[0x4000];
 
-static elf_status elf_load_debug_info(elf_ctx *ctx)
+static void elf_load_info(elf_ctx *ctx)
 {
+    // 定义各种节区头部
+    elf_sect_header sym_section_header;
+    elf_sect_header str_section_header;
     elf_sect_header shstr_section_header;
     elf_sect_header section_header;
 
@@ -372,15 +375,47 @@ static elf_status elf_load_debug_info(elf_ctx *ctx)
         // 获取节区类型
         const uint32 type = section_header.type;
         // 如果是符号表，保存符号表头部
-        // sprint("section name: %s\n %x", str_table + section_header.name, type);
-        if (type == 0x1 && strcmp(str_table + section_header.name, ".debug_line") == 0)
+        if (type == SHT_SYMTAB)
+        {
+            sym_section_header = section_header;
+            // 如果是字符串表，并且名字是.strtab，保存字符串表头部
+        }
+        else if (type == SHT_STRTAB && strcmp(str_table + section_header.name, ".strtab") == 0)
+        {
+            str_section_header = section_header;
+        }
+        else if (type == 0x1 && strcmp(str_table + section_header.name, ".debug_line") == 0)
         {
             elf_fpread(ctx, (void *)&debug_line, section_header.size, section_header.offset);
             make_addr_line(ctx, debug_line, section_header.size);
-            sprint("debug_line section loaded\n");
         }
     }
-    return EL_OK;
+
+    // 获取字符串表的偏移量
+    uint64 str_sect_off = str_section_header.offset;
+    // 计算符号数量
+    uint64 sym_num = sym_section_header.size / sizeof(elf_symbol);
+    int count = 0;
+    // 遍历所有符号
+    for (int i = 0; i < sym_num; i++)
+    {
+        // 读取符号
+        elf_symbol symbol;
+        elf_fpread(ctx, (void *)&symbol, sizeof(symbol), sym_section_header.offset + i * sizeof(elf_symbol));
+        // 如果符号名字不为空，并且符号类型是函数
+        if (symbol.st_name != 0 && (symbol.st_info & 0x0f) == STT_FUNC)
+        {
+            // 读取符号名字
+            char symname[32];
+            elf_fpread(ctx, (void *)&symname, sizeof(symname), str_sect_off + symbol.st_name);
+            // 保存符号和符号名字
+            symbols[count++] = symbol;
+            strcpy(sym_names[count - 1], symname);
+        }
+    }
+    // 保存符号数量
+    sym_count = count;
+    quickSort(0, sym_count - 1);
 }
 
 
@@ -408,7 +443,7 @@ void load_bincode_from_host_elf(process *p, char *filename)
     // load elf. elf_load() is defined above.
     if (elf_load(&elfloader) != EL_OK)
         panic("Fail on loading elf.\n");
-    elf_load_debug_info(&elfloader);
+    elf_load_info(&elfloader);
     // entry (virtual, also physical in lab1_x) address
     p->trapframe->epc = elfloader.ehdr.entry;
 

@@ -166,3 +166,7 @@ void *better_malloc(int n) { return (void *)do_user_call(SYS_user_malloc, n, 0, 
 void better_free(void *va) { do_user_call(SYS_user_free, (uint64)va, 0, 0, 0, 0, 0, 0); }
 
 void printpa(int *va) { do_user_call(SYS_user_printpa, (uint64)va, 0, 0, 0, 0, 0, 0); }
+
+void print_backtrace(int depth) {
+    do_user_call(SYS_user_backtrace, depth, 0, 0, 0, 0, 0, 0);
+}

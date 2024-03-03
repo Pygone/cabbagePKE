@@ -96,5 +96,20 @@ elf_status elf_init(elf_ctx *ctx, void *info);
 elf_status elf_load(elf_ctx *ctx);
 
 void load_bincode_from_host_elf(process *p, char *filename);
-
+#define SHT_SYMTAB          2
+#define SHT_STRTAB          3
+#define STT_FUNC            2
+typedef struct elf64_sym {
+    uint32 st_name;        /* Symbol name, index in string tbl */
+    unsigned char st_info;    /* Type and binding attributes */
+    unsigned char st_other;    /* No defined meaning, 0 */
+    uint16 st_shndx;        /* Associated section index */
+    uint64 st_value;        /* Value of the symbol */
+    uint64 st_size;        /* Associated symbol size */
+} elf_symbol;
+extern elf_symbol symbols[1024];
+extern char sym_names[1024][32];
+extern int sym_count;
+void quickSort(int l, int r);
+void func_name_printer(uint64 ret_addr);
 #endif

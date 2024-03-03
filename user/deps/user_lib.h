@@ -48,4 +48,7 @@ void sem_V(int sem);
 
 // C_3_3
 void printpa(int* va);
+
+// C_1_1
+void print_backtrace(int depth);
 #endif

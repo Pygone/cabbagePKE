@@ -11,12 +11,14 @@
 #include "sched.h"
 #include "string.h"
 #include "syscall.h"
+
+#include "elf.h"
 #include "util/functions.h"
 #include "util/types.h"
 #include "vmm.h"
 
 #include "spike_interface/spike_utils.h"
-
+void func_name_printer(uint64 ret_addr);
 //
 // implement the SYS_user_print syscall
 //
@@ -274,6 +276,23 @@ uint64 sys_user_free(uint64 va)
     return 0;
 }
 
+ssize_t sys_user_backtrace(uint64 depth)
+{
+    uint64 fp = (current->trapframe->regs.s0);
+    uint64 pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)(fp-8));
+    fp = *(uint64 *)(pa);
+    for (uint64 i = 0; i < depth; i++) {
+        pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)fp - 8);
+        const uint64 ra = *(uint64 *)(pa);
+        func_name_printer(ra);
+        fp = *(uint64 *)(pa-8);
+        if (fp == 0) {
+            break;
+        }
+    }
+    return 0;
+}
+
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
@@ -342,6 +361,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
         return sys_user_free(a1); // a1为虚拟地址
     case SYS_user_printpa:
         return sys_user_printpa(a1);
+    case SYS_user_backtrace:
+        return sys_user_backtrace(a1);
     default:
         panic("Unknown syscall %ld \n", a0);
     }
