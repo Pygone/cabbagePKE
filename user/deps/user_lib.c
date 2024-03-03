@@ -164,3 +164,5 @@ void *better_malloc(int n) { return (void *)do_user_call(SYS_user_malloc, n, 0, 
 // lib call to better_free
 //
 void better_free(void *va) { do_user_call(SYS_user_free, (uint64)va, 0, 0, 0, 0, 0, 0); }
+
+void printpa(int *va) { do_user_call(SYS_user_printpa, (uint64)va, 0, 0, 0, 0, 0, 0); }

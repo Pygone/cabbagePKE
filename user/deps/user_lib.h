@@ -46,4 +46,6 @@ int sem_new(int sem);
 void sem_P(int sem);
 void sem_V(int sem);
 
+// C_3_3
+void printpa(int* va);
 #endif

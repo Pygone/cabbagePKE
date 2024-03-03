@@ -29,7 +29,12 @@ ssize_t sys_user_print(const char *buf, size_t n)
     sprint(pa);
     return 0;
 }
-
+ssize_t sys_user_printpa(uint64 va)
+{
+    uint64 pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void *)va);
+    sprint("%lx\n", pa);
+    return 0;
+}
 ssize_t sys_user_gets(char *buf, size_t n)
 {
     // buf is now an address in user space of the given app's user stack,
@@ -261,11 +266,10 @@ ssize_t sys_user_sem_release(uint64 sem)
 }
 
 // ADD:lab2_challenge2
-uint64 sys_user_malloc(uint64 n) {
-    return (uint64)vm_malloc(n);
-}
+uint64 sys_user_malloc(uint64 n) { return (uint64)vm_malloc(n); }
 
-uint64 sys_user_free(uint64 va) {
+uint64 sys_user_free(uint64 va)
+{
     vm_free(va);
     return 0;
 }
@@ -336,6 +340,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
         return sys_user_malloc(a1); // a1为申请的字节数
     case SYS_user_free:
         return sys_user_free(a1); // a1为虚拟地址
+    case SYS_user_printpa:
+        return sys_user_printpa(a1);
     default:
         panic("Unknown syscall %ld \n", a0);
     }
