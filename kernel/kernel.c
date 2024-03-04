@@ -55,7 +55,7 @@ int s_start(void)
   load_user_program(&user_app[hart_id]);
   
 
-  sprint("hartid = %d: Switch to user mode...\n");
+  sprint("hartid = %d: Switch to user mode...\n", hart_id);
   // switch_to() is defined in kernel/process.c
   switch_to(&user_app[hart_id]);
 
