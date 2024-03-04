@@ -111,13 +111,14 @@ int s_start(void)
               sprint("kernel page table is on \n");
        }
        spinlock_unlock(&latch_);
+
        // the application code (elf) is first loaded into memory, and then put into execution
        load_user_program(&user_app[hart_id]);
+       sync_barrier(&cnt, NCPU);
        sprint("hartid = %d: Switch to user mode...\n");
 
-       uint64 hartid = 0;
 
-       vm_alloc_stage[hartid] = 1;
+       vm_alloc_stage[hart_id] = 1;
        // switch_to() is defined in kernel/process.c
        switch_to(&user_app[hart_id]);
 
