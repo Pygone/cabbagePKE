@@ -15,6 +15,7 @@
 #include "sched.h"
 #include "spike_interface/spike_utils.h"
 #include "string.h"
+#include "sync_utils.h"
 #include "util/types.h"
 #include "vfs.h"
 #include "vmm.h"
@@ -134,6 +135,7 @@ int s_start(void)
     // the application code (elf) is first loaded into memory, and then put into execution
     // added @lab3_1
     insert_to_ready_queue(load_user_program());
+    sync_barrier(&cnt, NCPU);
     schedule();
 
     // we should never reach here.
