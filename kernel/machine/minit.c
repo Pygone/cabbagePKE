@@ -2,6 +2,7 @@
  * Machine-mode C startup codes
  */
 
+#include "kernel/sync_utils.h"
 #include "util/types.h"
 #include "kernel/riscv.h"
 #include "kernel/config.h"
@@ -94,6 +95,7 @@ void timerinit(uintptr_t hartid)
 }
 static int started = 1;
 static spinlock_t latch_;
+static int cnt = 0;
 
 //
 // m_start: machine mode C entry point.
@@ -113,6 +115,7 @@ void m_start(uintptr_t hartid, uintptr_t dtb)
     init_dtb(dtb);
   }
   spinlock_unlock(&latch_);
+  sync_barrier(&cnt, NCPU);
   sprint("In m_start, hartid:%d\n", hartid);
 
   // save the address of trap frame for interrupt in M mode to "mscratch". added @lab1_2

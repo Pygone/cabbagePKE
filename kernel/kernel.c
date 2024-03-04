@@ -95,6 +95,7 @@ int s_start(void)
        // but now, we are going to switch to the paging mode @lab2_1.
        // note, the code still works in Bare mode when calling pmm_init() and kern_vm_init().
        write_csr(satp, 0);
+       
        spinlock_lock(&latch_);
        if (!inited)
        {
@@ -111,14 +112,15 @@ int s_start(void)
               sprint("kernel page table is on \n");
        }
        spinlock_unlock(&latch_);
-
+       sync_barrier(&cnt, NCPU);
        // the application code (elf) is first loaded into memory, and then put into execution
        load_user_program(&user_app[hart_id]);
-       sync_barrier(&cnt, NCPU);
-       sprint("hartid = %d: Switch to user mode...\n");
-
+       
+       sprint("hartid = %d: Switch to user mode...\n",hart_id);
+       
 
        vm_alloc_stage[hart_id] = 1;
+       
        // switch_to() is defined in kernel/process.c
        switch_to(&user_app[hart_id]);
 
