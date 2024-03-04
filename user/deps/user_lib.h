@@ -9,8 +9,8 @@
 
 int printu(const char *s, ...);
 int exit(int code);
-void* better_malloc(int n);
-void better_free(void* va);
+void *better_malloc(int n);
+void better_free(void *va);
 void *naive_malloc();
 void naive_free(void *va);
 int fork();
@@ -47,7 +47,7 @@ void sem_P(int sem);
 void sem_V(int sem);
 
 // C_3_3
-void printpa(int* va);
+void printpa(int *va);
 
 // C_1_1
 void print_backtrace(int depth);
@@ -55,4 +55,7 @@ void print_backtrace(int depth);
 // C_4_1
 int read_cwd(char *path);
 int change_cwd(const char *path);
+
+// C_X
+int test(char *path);
 #endif

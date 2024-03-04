@@ -2,6 +2,9 @@
  * Supervisor-mode startup codes
  */
 
+#include <spike_interface/atomic.h>
+
+
 #include "elf.h"
 #include "memlayout.h"
 #include "pmm.h"
@@ -39,7 +42,11 @@ typedef union
     uint64 buf[MAX_CMDLINE_ARGS];
     char *argv[MAX_CMDLINE_ARGS];
 } arg_buf;
-
+static spinlock_t latch_;
+static int inited = 0;
+static int cnt = 0;
+static int has_parsed = 0;
+static arg_buf arg_bug_msg;
 //
 // returns the number (should be 1) of string(s) after PKE kernel in command line.
 // and store the string(s) in arg_bug_msg.
@@ -89,35 +96,32 @@ process *load_user_program()
 //
 int s_start(void)
 {
+    int hart = read_tp();
     sprint("Enter supervisor mode...\n");
     // in the beginning, we use Bare mode (direct) memory mapping as in lab1.
     // but now, we are going to switch to the paging mode @lab2_1.
     // note, the code still works in Bare mode when calling pmm_init() and kern_vm_init().
     write_csr(satp, 0);
-
-    // init phisical memory manager
-    pmm_init();
-
-    // build the kernel page table
-    kern_vm_init();
-
+    spinlock_lock(&latch_);
+    if (!inited)
+    {
+        inited = 1;
+        pmm_init();
+        kern_vm_init();
+        init_proc_pool();
+        fs_init();
+    }
+    spinlock_unlock(&latch_);
     // now, switch to paging mode by turning on paging (SV39)
     enable_paging();
-    // the code now formally works in paging mode, meaning the page table is now in use.
-    sprint("kernel page table is on \n");
-
-    // added @lab3_1
-    init_proc_pool();
-
-    // init file system, added @lab4_1
-    fs_init();
-
-    sprint("Switch to user mode...\n");
-    // the application code (elf) is first loaded into memory, and then put into execution
-    // added @lab3_1
-    insert_to_ready_queue(load_user_program());
-    schedule();
-
+    if (hart ==0)
+    {
+        insert_to_ready_queue(load_user_program());
+        schedule();
+    }else
+    {
+        do_wait_call();
+    }
     // we should never reach here.
     return 0;
 }

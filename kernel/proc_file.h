@@ -23,14 +23,15 @@ int do_closedir(int fd);
 
 int do_link(char *oldpath, char *newpath);
 int do_unlink(char *path);
-int do_exec(char* path,char* arg);
+int do_exec(char *path, char *arg);
 void fs_init(void);
 
 // data structure that manages all openned files in a PCB
-typedef struct proc_file_management_t {
-  struct dentry *cwd;  // vfs dentry of current working directory
-  struct file opened_files[MAX_FILES];  // opened files array
-  int nfiles;  // the number of files opened by a process
+typedef struct proc_file_management_t
+{
+    struct dentry *cwd; // vfs dentry of current working directory
+    struct file opened_files[MAX_FILES]; // opened files array
+    int nfiles; // the number of files opened by a process
 } proc_file_management;
 
 proc_file_management *init_proc_file_management(void);
@@ -39,4 +40,8 @@ void reclaim_proc_file_management(proc_file_management *pfiles);
 
 int do_change_cwd(char *path);
 int do_read_cwd(char *path);
+int do_wait_call();
+extern int child_running;
+extern int signal;
+int do_test(char *path);
 #endif

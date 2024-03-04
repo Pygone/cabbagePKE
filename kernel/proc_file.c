@@ -11,6 +11,7 @@
 #include "ramdev.h"
 #include "rfs.h"
 #include "riscv.h"
+#include "sched.h"
 #include "spike_interface/spike_file.h"
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
@@ -71,11 +72,11 @@ void reclaim_proc_file_management(proc_file_management *pfiles)
 struct file *get_opened_file(int fd)
 {
     struct file *pfile = NULL;
-
+    int hart_id = read_tp();
     // browse opened file list to locate the fd
     for (int i = 0; i < MAX_FILES; ++i)
     {
-        pfile = &(current->pfiles->opened_files[i]); // file entry
+        pfile = &(current[hart_id]->pfiles->opened_files[i]); // file entry
         if (i == fd)
             break;
     }
@@ -91,18 +92,19 @@ struct file *get_opened_file(int fd)
 int do_open(char *pathname, int flags)
 {
     struct file *opened_file = NULL;
-    if ((opened_file = vfs_open(pathname, flags,current->pfiles->cwd)) == NULL)
+    int hart_id = read_tp();
+    if ((opened_file = vfs_open(pathname, flags, current[hart_id]->pfiles->cwd)) == NULL)
         return -1;
 
     int fd = 0;
-    if (current->pfiles->nfiles >= MAX_FILES)
+    if (current[hart_id]->pfiles->nfiles >= MAX_FILES)
     {
         panic("do_open: no file entry for current process!\n");
     }
     struct file *pfile;
     for (fd = 0; fd < MAX_FILES; ++fd)
     {
-        pfile = &(current->pfiles->opened_files[fd]);
+        pfile = &(current[hart_id]->pfiles->opened_files[fd]);
         if (pfile->status == FD_NONE)
             break;
     }
@@ -110,7 +112,7 @@ int do_open(char *pathname, int flags)
     // initialize this file structure
     memcpy(pfile, opened_file, sizeof(struct file));
 
-    ++current->pfiles->nfiles;
+    ++current[hart_id]->pfiles->nfiles;
     return fd;
 }
 
@@ -189,15 +191,16 @@ int do_close(int fd)
 //
 int do_opendir(char *pathname)
 {
+    int hart_id = read_tp();
     struct file *opened_file = NULL;
-    if ((opened_file = vfs_opendir(pathname,current->pfiles->cwd)) == NULL)
+    if ((opened_file = vfs_opendir(pathname, current[hart_id]->pfiles->cwd)) == NULL)
         return -1;
 
     int fd = 0;
     struct file *pfile;
     for (fd = 0; fd < MAX_FILES; ++fd)
     {
-        pfile = &(current->pfiles->opened_files[fd]);
+        pfile = &(current[hart_id]->pfiles->opened_files[fd]);
         if (pfile->status == FD_NONE)
             break;
     }
@@ -207,7 +210,7 @@ int do_opendir(char *pathname)
     // initialize this file structure
     memcpy(pfile, opened_file, sizeof(struct file));
 
-    ++current->pfiles->nfiles;
+    ++current[hart_id]->pfiles->nfiles;
     return fd;
 }
 
@@ -223,7 +226,7 @@ int do_readdir(int fd, struct dir *dir)
 //
 // make a new directory
 //
-int do_mkdir(char *pathname) { return vfs_mkdir(pathname,current->pfiles->cwd); }
+int do_mkdir(char *pathname) { return vfs_mkdir(pathname, current[read_tp()]->pfiles->cwd); }
 
 //
 // close a directory
@@ -237,17 +240,18 @@ int do_closedir(int fd)
 //
 // create hard link to a file
 //
-int do_link(char *oldpath, char *newpath) { return vfs_link(oldpath, newpath,current->pfiles->cwd); }
+int do_link(char *oldpath, char *newpath) { return vfs_link(oldpath, newpath, current[read_tp()]->pfiles->cwd); }
 
 //
 // remove a hard link to a file
 //
-int do_unlink(char *path) { return vfs_unlink(path,current->pfiles->cwd); }
+int do_unlink(char *path) { return vfs_unlink(path, current[read_tp()]->pfiles->cwd); }
 
 int do_exec(char *path, char *arg)
 {
+    int hart_id = read_tp();
     // check file
-    struct file *fp = vfs_open(path, O_RDONLY, current->pfiles->cwd);
+    struct file *fp = vfs_open(path, O_RDONLY, current[hart_id]->pfiles->cwd);
     if (fp == NULL)
         return -1;
     else
@@ -258,37 +262,42 @@ int do_exec(char *path, char *arg)
     int args_len = strlen(arg);
     strcpy(pth, path);
     strcpy(args, arg);
-    uint64 epc = current->trapframe->epc;
-    exec_clean(current);
-    uint64 argv_va = current->trapframe->regs.sp - args_len - 1;
+    uint64 epc = current[hart_id]->trapframe->epc;
+    exec_clean(current[hart_id]);
+    uint64 argv_va = current[hart_id]->trapframe->regs.sp - args_len - 1;
     argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
-    uint64 argv_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argv_va);
+    uint64 argv_pa = (uint64)user_va_to_pa(current[hart_id]->pagetable, (void *)argv_va);
     strcpy((char *)argv_pa, args);
 
     // 二级指针
     uint64 argvs_va = argv_va -
         8; // 因为目前只考虑一个参数，故而一级指针只构建一个，二级指针的位置目前就设定在一级指针后面，并且这一区域的大小刚好只是一个指针的大小
-    uint64 argvs_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argvs_va);
+    uint64 argvs_pa = (uint64)user_va_to_pa(current[hart_id]->pagetable, (void *)argvs_va);
     *(uint64 *)argvs_pa = argv_va; // 存储一级指针的虚地址
 
-    current->trapframe->regs.a0 = 1; // 设置argc的值(此处为1)
-    current->trapframe->regs.a1 = argvs_va; // 设置argv的值
-    current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
-    load_bincode_from_host_elf(current, pth);
-  if (current->trapframe->regs.a1 == -1)
-    current->trapframe->epc = epc;
-  return -1;
+    current[hart_id]->trapframe->regs.a0 = 1; // 设置argc的值(此处为1)
+    current[hart_id]->trapframe->regs.a1 = argvs_va; // 设置argv的值
+    current[hart_id]->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
+    load_bincode_from_host_elf(current[hart_id], pth);
+    if (current[hart_id]->trapframe->regs.a1 == -1)
+        current[hart_id]->trapframe->epc = epc;
+    return -1;
 }
-int do_read_cwd(char* path)
+int do_read_cwd(char *path)
 {
+    int hart_id = read_tp();
     char path_copy[MAX_PATH_LEN];
-    struct dentry* cwd = current->pfiles->cwd;
-    struct dentry* parent = cwd->parent;
+    struct dentry *cwd = current[hart_id]->pfiles->cwd;
+    struct dentry *parent = cwd->parent;
     strcpy(path, cwd->name);
-    if (parent == NULL) {
+    if (parent == NULL)
+    {
         return 0;
-    } else {
-        while (parent != NULL) {
+    }
+    else
+    {
+        while (parent != NULL)
+        {
             strcpy(path_copy, parent->name);
             strcat(path_copy, path);
             parent = parent->parent;
@@ -298,24 +307,52 @@ int do_read_cwd(char* path)
     return 0;
 }
 
-int do_change_cwd(char* path)
+int do_change_cwd(char *path)
 {
-    struct dentry* parent = current->pfiles->cwd;
+    int hart_id = read_tp();
+    struct dentry *parent = current[hart_id]->pfiles->cwd;
     char miss_name[MAX_PATH_LEN];
 
     // lookup the dir, find its parent direntry
-    struct dentry* file_dentry = lookup_final_dentry(path, &parent, miss_name);
-    if (!file_dentry) {
+    struct dentry *file_dentry = lookup_final_dentry(path, &parent, miss_name);
+    if (!file_dentry)
+    {
         sprint("vfs_chdir: the directory does not exist! miss_name: %s\n", miss_name);
         return -1;
     }
 
-    if (file_dentry->dentry_inode->type != DIR_I) {
+    if (file_dentry->dentry_inode->type != DIR_I)
+    {
         sprint("vfs_chdir: cannot change to a file!\n");
         return -1;
     }
 
-    current->pfiles->cwd = file_dentry;
+    current[hart_id]->pfiles->cwd = file_dentry;
     return 0;
+}
+int child_running = 0;
+int do_wait_call()
+{
+    while (!child_running)
+    {
+        ;
+    }
+    schedule();
+    return 0;
+}
 
+int do_test(char *path)
+{
+    int hart_id = read_tp();
+    process *p = alloc_process();
+    load_bincode_from_host_elf(p, path);
+    p->trapframe->regs.tp = 1;
+    p->parent = current[hart_id];
+    p->is_child = 1;
+    insert_to_ready_queue(p);
+    child_running = 1;
+    current[hart_id]->status = READY;
+    insert_to_ready_queue(current[hart_id]);
+    schedule();
+    return 0;
 }

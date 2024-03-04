@@ -1,7 +1,7 @@
 #include "kernel/process.h"
 #include "kernel/riscv.h"
 #include "spike_interface/spike_utils.h"
-
+#include "util/string.h"
 static void handle_instruction_access_fault() { panic("Instruction access fault!"); }
 
 static void handle_load_access_fault() { panic("Load access fault!"); }
@@ -17,7 +17,7 @@ static void handle_misaligned_store() { panic("Misaligned AMO!"); }
 // added @lab1_3
 static void handle_timer()
 {
-    int cpuid = 0;
+    int cpuid = read_tp();
     // setup the timer fired at next time (TIMER_INTERVAL from now)
     *(uint64 *)CLINT_MTIMECMP(cpuid) = *(uint64 *)CLINT_MTIMECMP(cpuid) + TIMER_INTERVAL;
 

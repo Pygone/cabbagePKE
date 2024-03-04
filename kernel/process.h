@@ -122,6 +122,7 @@ typedef struct process_t
     addr_line *line;
     int line_ind;
     uint64 first_free_block;
+    int is_child;
 } process;
 
 
@@ -141,7 +142,7 @@ int do_wait(int pid);
 
 void exec_clean(process *p);
 // current running process
-extern process *current;
+extern process *current[NCPU];
 void print_error_line(uint64 mepc);
 
 void* vm_malloc(uint64 n);

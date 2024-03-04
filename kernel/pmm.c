@@ -2,10 +2,10 @@
 #include "config.h"
 #include "memlayout.h"
 #include "riscv.h"
+#include "spike_interface/atomic.h"
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
-
 // _end is defined in kernel/kernel.lds, it marks the ending (virtual) address of PKE kernel
 extern char _end[];
 // g_mem_size is defined in spike_interface/spike_memory.c, it indicates the size of our
@@ -14,14 +14,13 @@ extern uint64 g_mem_size;
 
 static uint64 free_mem_start_addr; // beginning address of free memory
 static uint64 free_mem_end_addr; // end address of free memory (not included)
-
 typedef struct ref_unit
 {
     uint64 pa;
     uint64 ref;
 } ref_unit;
 static ref_unit ref_list[0x4000];
-static uint64 ref_total = 0;
+static int64 ref_total = 0;
 
 int ref_find(uint64 pa)
 {
@@ -122,19 +121,26 @@ static void create_freepage_list(uint64 start, uint64 end)
         free_page((void *)p);
 }
 
+static spinlock_t page_latch_;
+
 //
 // place a physical page at *pa to the free list of g_free_mem_list (to reclaim the page)
 //
 void free_page(void *pa)
 {
+    spinlock_lock(&page_latch_);
     if (((uint64)pa % PGSIZE) != 0 || (uint64)pa < free_mem_start_addr || (uint64)pa >= free_mem_end_addr)
         panic("free_page 0x%lx \n", pa);
     if (ref_erase((uint64)pa) == 0)
+    {
+        spinlock_unlock(&page_latch_);
         return;
+    }
     // insert a physical page to g_free_mem_list
     list_node *n = (list_node *)pa;
     n->next = g_free_mem_list.next;
     g_free_mem_list.next = n;
+    spinlock_unlock(&page_latch_);
 }
 
 //
@@ -143,10 +149,13 @@ void free_page(void *pa)
 //
 void *alloc_page(void)
 {
+    spinlock_lock(&page_latch_);
     list_node *n = g_free_mem_list.next;
+    uint64 hartid = 0;
     if (n)
         g_free_mem_list.next = n->next;
     ref_insert((uint64)n);
+    spinlock_unlock(&page_latch_);
     return (void *)n;
 }
 

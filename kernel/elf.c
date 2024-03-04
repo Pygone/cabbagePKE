@@ -446,7 +446,7 @@ void load_bincode_from_host_elf(process *p, char *filename)
     elf_load_info(&elfloader);
     // entry (virtual, also physical in lab1_x) address
     p->trapframe->epc = elfloader.ehdr.entry;
-
+    p->trapframe->regs.tp = read_tp();
     // close the vfs file
     vfs_close(info.f);
 }

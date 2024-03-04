@@ -9,18 +9,20 @@
 #include "spike_interface/spike_utils.h"
 
 process *ready_queue_head = NULL;
-
+static spinlock_t ready_queue_lock;
 //
 // insert a process, proc, into the END of ready queue.
 //
 void insert_to_ready_queue(process *proc)
 {
+    spinlock_lock(&ready_queue_lock);
     // if the queue is empty in the beginning
     if (ready_queue_head == NULL)
     {
         proc->status = READY;
         proc->queue_next = NULL;
         ready_queue_head = proc;
+        spinlock_unlock(&ready_queue_lock);
         return;
     }
 
@@ -29,8 +31,11 @@ void insert_to_ready_queue(process *proc)
     // browse the ready queue to see if proc is already in-queue
     for (p = ready_queue_head; p->queue_next != NULL; p = p->queue_next)
         if (p == proc)
-            return; // already in queue
-
+        {
+            spinlock_unlock(&ready_queue_lock);
+            return;
+        } // already in queue
+    spinlock_unlock(&ready_queue_lock);
     // p points to the last element of the ready queue
     if (p == proc)
         return;
@@ -47,9 +52,13 @@ void insert_to_ready_queue(process *proc)
 // process is still runnable, you should place it into the ready queue (by calling
 // ready_queue_insert), and then call schedule().
 //
+
 extern process procs[NPROC];
 void schedule()
 {
+
+    int hart_id = read_tp();
+    spinlock_lock(&ready_queue_lock);
     if (!ready_queue_head)
     {
         // by default, if there are no ready process, and all processes are in the status of
@@ -74,12 +83,13 @@ void schedule()
         }
     }
 
-    current = ready_queue_head;
-    assert(current->status == READY);
+    current[hart_id] = ready_queue_head;
+    assert(current[hart_id]->status == READY);
     ready_queue_head = ready_queue_head->queue_next;
+    spinlock_unlock(&ready_queue_lock);
+    current[hart_id]->status = RUNNING;
 
-    current->status = RUNNING;
-    switch_to(current);
+    switch_to(current[hart_id]);
 }
 
 int sems[SEM_MAX];
@@ -144,7 +154,7 @@ void __acquire(uint64 sem)
     sems[sem]--;
     if (sems[sem] < 0)
     {
-        waiting_queue_push(current, sem);
+        waiting_queue_push(current[read_tp()], sem);
         spinlock_unlock(&sem_lock[sem]);
         schedule();
     }

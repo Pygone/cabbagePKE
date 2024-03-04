@@ -49,7 +49,7 @@
 
 #define SYS_user_rcwd (SYS_user_base + 40)
 #define SYS_user_ccwd (SYS_user_base + 41)
-
+#define SYS_user_test (SYS_user_base + 42)
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, long a7);
 
 #endif
