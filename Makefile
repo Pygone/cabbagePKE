@@ -26,6 +26,7 @@ clean:
 	@if [ -d "lib" ]; then rm -r lib; fi
 	@if [ -d "hostfs_root/bin" ]; then rm -r hostfs_root/bin; fi
 	@if [ -d "output" ]; then rm -r output; fi
+	@if [ -d "obj" ]; then rm -r obj; fi
 	@echo "Done"
 
 run: build
