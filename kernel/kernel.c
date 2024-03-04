@@ -2,6 +2,9 @@
  * Supervisor-mode startup codes
  */
 
+#include <spike_interface/atomic.h>
+
+
 #include "elf.h"
 #include "memlayout.h"
 #include "pmm.h"
@@ -61,57 +64,72 @@ static size_t parse_args(arg_buf *arg_bug_msg)
     return pk_argc - arg;
 }
 
+static spinlock_t latch_;
+static int inited = 0;
+static int cnt = 0;
+static int has_parsed = 0;
+static arg_buf arg_bug_msg;
 //
 // load the elf, and construct a "process" (with only a trapframe).
 // load_bincode_from_host_elf is defined in elf.c
 //
 process *load_user_program()
 {
-    process *proc;
-
-    proc = alloc_process();
+    int hart_id = read_tp();
+    process *proc = alloc_process();
+    proc->trapframe->regs.tp = hart_id;
     sprint("User application is loading.\n");
-
-    arg_buf arg_bug_msg;
-
-    // retrieve command line arguements
-    size_t argc = parse_args(&arg_bug_msg);
-    if (!argc)
-        panic("You need to specify the application program!\n");
-
-    load_bincode_from_host_elf(proc, arg_bug_msg.argv[0]);
+    spinlock_lock(&latch_);
+    if (has_parsed == 0)
+    {
+        has_parsed = 1;
+        size_t argc = parse_args(&arg_bug_msg);
+        if (!argc)
+            panic("You need to specify the application program!\n");
+    }
+    spinlock_unlock(&latch_);
+    load_bincode_from_host_elf(proc, arg_bug_msg.argv[hart_id]);
     proc->first_free_block = 0;
     return proc;
 }
+
 
 //
 // s_start: S-mode entry point of riscv-pke OS kernel.
 //
 int s_start(void)
 {
-    sprint("Enter supervisor mode...\n");
+    int hart_id = read_tp();
+    sprint("hartid = %d: Enter supervisor mode...\n", hart_id);
+
     // in the beginning, we use Bare mode (direct) memory mapping as in lab1.
     // but now, we are going to switch to the paging mode @lab2_1.
     // note, the code still works in Bare mode when calling pmm_init() and kern_vm_init().
     write_csr(satp, 0);
 
-    // init phisical memory manager
-    pmm_init();
+    spinlock_lock(&latch_);
+    if (!inited)
+    {
+        inited = 1;
+        // init phisical memory manager
+        pmm_init();
 
-    // build the kernel page table
-    kern_vm_init();
+        // build the kernel page table
+        kern_vm_init();
 
-    // now, switch to paging mode by turning on paging (SV39)
-    enable_paging();
-    // the code now formally works in paging mode, meaning the page table is now in use.
-    sprint("kernel page table is on \n");
+        // now, switch to paging mode by turning on paging (SV39)
+        enable_paging();
+        // the code now formally works in paging mode, meaning the page table is now in use.
+        sprint("kernel page table is on \n");
 
+
+        // init file system, added @lab4_1
+        fs_init();
+    }
+    spinlock_unlock(&latch_);
     // added @lab3_1
     init_proc_pool();
-
-    // init file system, added @lab4_1
-    fs_init();
-
+    vm_alloc_stage[hart_id] = 1;
     sprint("Switch to user mode...\n");
     // the application code (elf) is first loaded into memory, and then put into execution
     // added @lab3_1

@@ -33,17 +33,18 @@ static void handle_syscall(trapframe *tf)
 
 //
 // global variable that store the recorded "ticks". added @lab1_3
-static uint64 g_ticks = 0;
+static uint64 g_ticks[NCPU] = {0};
 //
 // added @lab1_3
 //
 void handle_mtimer_trap()
 {
-    sprint("Ticks %d\n", g_ticks);
+    int hart_id = read_tp();
+    sprint("Ticks %d\n", g_ticks[hart_id]);
     // TODO (lab1_3): increase g_ticks to record this "tick", and then clear the "SIP"
     // field in sip register.
     // hint: use write_csr to disable the SIP_SSIP bit in sip.
-    g_ticks++;
+    g_ticks[hart_id]++;
     write_csr(sip, read_csr(sip) & ~SIP_SSIP);
 }
 
@@ -55,6 +56,7 @@ void handle_mtimer_trap()
 void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval)
 {
     sprint("handle_page_fault: %lx\n", stval);
+    int hart_id = read_tp();
     switch (mcause)
     {
     case CAUSE_STORE_PAGE_FAULT:
@@ -70,11 +72,11 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval)
                 panic("alloc_page failed.\n");
             }
             // 判断逻辑地址是否在栈的范围内s
-            if (stval < current->trapframe->regs.sp - PGSIZE)
+            if (stval < current[hart_id]->trapframe->regs.sp - PGSIZE)
             {
                 panic("this address is not available!");
             }
-            pte_t *pte = page_walk(current->pagetable, stval, 1);
+            pte_t *pte = page_walk(current[hart_id]->pagetable, stval, 1);
             if ((RSW((*pte))) == 1)
             {
                 uint64 origin_pa = PTE2PA(*pte);
@@ -95,16 +97,17 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval)
 //
 void rrsched()
 {
+    int hart_id = read_tp();
     // TODO (lab3_3): implements round-robin scheduling.
     // hint: increase the tick_count member of current process by one, if it is bigger than
     // TIME_SLICE_LEN (means it has consumed its time slice), change its status into READY,
     // place it in the rear of ready queue, and finally schedule next process to run.
-    current->tick_count++;
-    if (current->tick_count >= TIME_SLICE_LEN)
+    current[hart_id]->tick_count++;
+    if (current[hart_id]->tick_count >= TIME_SLICE_LEN)
     {
-        current->tick_count = 0;
-        current->status = READY;
-        insert_to_ready_queue(current);
+        current[hart_id]->tick_count = 0;
+        current[hart_id]->status = READY;
+        insert_to_ready_queue(current[hart_id]);
         schedule();
     }
 }
@@ -119,10 +122,10 @@ void smode_trap_handler(void)
     // we will consider other previous case in lab1_3 (interrupt).
     if ((read_csr(sstatus) & SSTATUS_SPP) != 0)
         panic("usertrap: not from user mode");
-
-    assert(current);
+    int hart_id = read_tp();
+    assert(current[hart_id]);
     // save user process counter.
-    current->trapframe->epc = read_csr(sepc);
+    current[hart_id]->trapframe->epc = read_csr(sepc);
 
     // if the cause of trap is syscall from user application.
     // read_csr() and CAUSE_USER_ECALL are macros defined in kernel/riscv.h
@@ -132,7 +135,7 @@ void smode_trap_handler(void)
     switch (cause)
     {
     case CAUSE_USER_ECALL:
-        handle_syscall(current->trapframe);
+        handle_syscall(current[hart_id]->trapframe);
         break;
     case CAUSE_MTIMER_S_TRAP:
         handle_mtimer_trap();
@@ -153,5 +156,5 @@ void smode_trap_handler(void)
     }
 
     // continue (come back to) the execution of current process.
-    switch_to(current);
+    switch_to(current[hart_id]);
 }

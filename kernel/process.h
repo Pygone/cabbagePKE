@@ -141,7 +141,7 @@ int do_wait(int pid);
 
 void exec_clean(process *p);
 // current running process
-extern process *current;
+extern process *current[NCPU];
 void print_error_line(uint64 mepc);
 
 void* vm_malloc(uint64 n);

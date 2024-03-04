@@ -4,6 +4,7 @@
 
 #include "kernel/config.h"
 #include "kernel/riscv.h"
+#include "spike_interface/atomic.h"
 #include "spike_interface/spike_utils.h"
 #include "util/types.h"
 
@@ -28,7 +29,7 @@ extern uint64 htif;
 extern uint64 g_mem_size;
 // struct riscv_regs is define in kernel/riscv.h, and g_itrframe is used to save
 // registers when interrupt hapens in M mode. added @lab1_2
-riscv_regs g_itrframe;
+riscv_regs g_itrframe[NCPU];
 
 //
 // get the information of HTIF (calling interface) and the emulated memory by
@@ -90,6 +91,8 @@ void timerinit(uintptr_t hartid)
     // enable machine-mode timer irq in MIE (Machine Interrupt Enable) csr.
     write_csr(mie, read_csr(mie) | MIE_MTIE);
 }
+static int started = 1;
+static spinlock_t latch_;
 
 //
 // m_start: machine mode C entry point.
@@ -99,15 +102,18 @@ void m_start(uintptr_t hartid, uintptr_t dtb)
     // init the spike file interface (stdin,stdout,stderr)
     // functions with "spike_" prefix are all defined in codes under spike_interface/,
     // sprint is also defined in spike_interface/spike_utils.c
-    spike_file_init();
+    spinlock_lock(&latch_);
+    if (started != 0)
+    {
+        started = 0;
+        spike_file_init();
+        init_dtb(dtb);
+    }
+    spinlock_unlock(&latch_);
     sprint("In m_start, hartid:%d\n", hartid);
 
-    // init HTIF (Host-Target InterFace) and memory by using the Device Table Blob (DTB)
-    // init_dtb() is defined above.
-    init_dtb(dtb);
-
     // save the address of trap frame for interrupt in M mode to "mscratch". added @lab1_2
-    write_csr(mscratch, &g_itrframe);
+    write_csr(mscratch, &g_itrframe[hartid]);
 
     // set previous privilege mode to S (Supervisor), and will enter S mode after 'mret'
     // write_csr is a macro defined in kernel/riscv.h
@@ -131,6 +137,8 @@ void m_start(uintptr_t hartid, uintptr_t dtb)
 
     // init timing. added @lab1_3
     timerinit(hartid);
+
+    write_tp(hartid);
 
     // switch to supervisor mode (S mode) and jump to s_start(), i.e., set pc to mepc
     asm volatile("mret");

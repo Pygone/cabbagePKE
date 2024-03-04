@@ -27,10 +27,10 @@ extern void return_to_user(trapframe *, uint64 satp);
 extern char trap_sec_start[];
 
 // process pool. added @lab3_1
-process procs[NPROC];
+process procs[NCPU][NPROC];
 
-// current points to the currently running user-mode application.
-process *current = NULL;
+// current[hart_id] points to the currently running user-mode application.
+process *current[NCPU] = {NULL};
 
 //
 // switch to a user-mode process
@@ -38,7 +38,8 @@ process *current = NULL;
 void switch_to(process *proc)
 {
     assert(proc);
-    current = proc;
+    int hart_id = read_tp();
+    current[hart_id] = proc;
 
     // write the smode_trap_vector (64-bit func. address) defined in kernel/strap_vector.S
     // to the stvec privilege register, such that trap handler pointed by smode_trap_vector
@@ -76,12 +77,13 @@ void switch_to(process *proc)
 //
 void init_proc_pool()
 {
-    memset(procs, 0, sizeof(process) * NPROC);
+    int hart_id = read_tp();
+    memset(procs[hart_id], 0, sizeof(process) * NPROC);
 
     for (int i = 0; i < NPROC; ++i)
     {
-        procs[i].status = FREE;
-        procs[i].pid = i;
+        procs[hart_id][i].status = FREE;
+        procs[hart_id][i].pid = i;
     }
 }
 
@@ -93,9 +95,9 @@ process *alloc_process()
 {
     // locate the first usable process structure
     int i;
-
+    int hart_id = read_tp();
     for (i = 0; i < NPROC; i++)
-        if (procs[i].status == FREE)
+        if (procs[hart_id][i].status == FREE)
             break;
 
     if (i >= NPROC)
@@ -105,61 +107,61 @@ process *alloc_process()
     }
 
     // init proc[i]'s vm space
-    procs[i].trapframe = (trapframe *)alloc_page(); // trapframe, used to save context
-    memset(procs[i].trapframe, 0, sizeof(trapframe));
+    procs[hart_id][i].trapframe = (trapframe *)alloc_page(); // trapframe, used to save context
+    memset(procs[hart_id][i].trapframe, 0, sizeof(trapframe));
 
     // page directory
-    procs[i].pagetable = (pagetable_t)alloc_page();
-    memset((void *)procs[i].pagetable, 0, PGSIZE);
+    procs[hart_id][i].pagetable = (pagetable_t)alloc_page();
+    memset((void *)procs[hart_id][i].pagetable, 0, PGSIZE);
 
-    procs[i].kstack = (uint64)alloc_page() + PGSIZE; // user kernel stack top
+    procs[hart_id][i].kstack = (uint64)alloc_page() + PGSIZE; // user kernel stack top
     uint64 user_stack = (uint64)alloc_page(); // phisical address of user stack bottom
-    procs[i].trapframe->regs.sp = USER_STACK_TOP; // virtual address of user stack top
+    procs[hart_id][i].trapframe->regs.sp = USER_STACK_TOP; // virtual address of user stack top
 
     // allocates a page to record memory regions (segments)
-    procs[i].mapped_info = (mapped_region *)alloc_page();
-    memset(procs[i].mapped_info, 0, PGSIZE);
+    procs[hart_id][i].mapped_info = (mapped_region *)alloc_page();
+    memset(procs[hart_id][i].mapped_info, 0, PGSIZE);
 
     // map user stack in userspace
-    user_vm_map((pagetable_t)procs[i].pagetable, USER_STACK_TOP - PGSIZE, PGSIZE, user_stack,
+    user_vm_map((pagetable_t)procs[hart_id][i].pagetable, USER_STACK_TOP - PGSIZE, PGSIZE, user_stack,
                 prot_to_type(PROT_WRITE | PROT_READ, 1));
-    procs[i].mapped_info[STACK_SEGMENT].va = USER_STACK_TOP - PGSIZE;
-    procs[i].mapped_info[STACK_SEGMENT].npages = 1;
-    procs[i].mapped_info[STACK_SEGMENT].seg_type = STACK_SEGMENT;
+    procs[hart_id][i].mapped_info[STACK_SEGMENT].va = USER_STACK_TOP - PGSIZE;
+    procs[hart_id][i].mapped_info[STACK_SEGMENT].npages = 1;
+    procs[hart_id][i].mapped_info[STACK_SEGMENT].seg_type = STACK_SEGMENT;
 
     // map trapframe in user space (direct mapping as in kernel space).
-    user_vm_map((pagetable_t)procs[i].pagetable, (uint64)procs[i].trapframe, PGSIZE, (uint64)procs[i].trapframe,
-                prot_to_type(PROT_WRITE | PROT_READ, 0));
-    procs[i].mapped_info[CONTEXT_SEGMENT].va = (uint64)procs[i].trapframe;
-    procs[i].mapped_info[CONTEXT_SEGMENT].npages = 1;
-    procs[i].mapped_info[CONTEXT_SEGMENT].seg_type = CONTEXT_SEGMENT;
+    user_vm_map((pagetable_t)procs[hart_id][i].pagetable, (uint64)procs[hart_id][i].trapframe, PGSIZE,
+                (uint64)procs[hart_id][i].trapframe, prot_to_type(PROT_WRITE | PROT_READ, 0));
+    procs[hart_id][i].mapped_info[CONTEXT_SEGMENT].va = (uint64)procs[hart_id][i].trapframe;
+    procs[hart_id][i].mapped_info[CONTEXT_SEGMENT].npages = 1;
+    procs[hart_id][i].mapped_info[CONTEXT_SEGMENT].seg_type = CONTEXT_SEGMENT;
 
     // map S-mode trap vector section in user space (direct mapping as in kernel space)
     // we assume that the size of usertrap.S is smaller than a page.
-    user_vm_map((pagetable_t)procs[i].pagetable, (uint64)trap_sec_start, PGSIZE, (uint64)trap_sec_start,
+    user_vm_map((pagetable_t)procs[hart_id][i].pagetable, (uint64)trap_sec_start, PGSIZE, (uint64)trap_sec_start,
                 prot_to_type(PROT_READ | PROT_EXEC, 0));
-    procs[i].mapped_info[SYSTEM_SEGMENT].va = (uint64)trap_sec_start;
-    procs[i].mapped_info[SYSTEM_SEGMENT].npages = 1;
-    procs[i].mapped_info[SYSTEM_SEGMENT].seg_type = SYSTEM_SEGMENT;
+    procs[hart_id][i].mapped_info[SYSTEM_SEGMENT].va = (uint64)trap_sec_start;
+    procs[hart_id][i].mapped_info[SYSTEM_SEGMENT].npages = 1;
+    procs[hart_id][i].mapped_info[SYSTEM_SEGMENT].seg_type = SYSTEM_SEGMENT;
 
 
     // initialize the process's heap manager
-    procs[i].user_heap.heap_top = USER_FREE_ADDRESS_START;
-    procs[i].user_heap.heap_bottom = USER_FREE_ADDRESS_START;
-    procs[i].user_heap.free_pages_count = 0;
+    procs[hart_id][i].user_heap.heap_top = USER_FREE_ADDRESS_START;
+    procs[hart_id][i].user_heap.heap_bottom = USER_FREE_ADDRESS_START;
+    procs[hart_id][i].user_heap.free_pages_count = 0;
 
     // map user heap in userspace
-    procs[i].mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START;
-    procs[i].mapped_info[HEAP_SEGMENT].npages = 0; // no pages are mapped to heap yet.
-    procs[i].mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
+    procs[hart_id][i].mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START;
+    procs[hart_id][i].mapped_info[HEAP_SEGMENT].npages = 0; // no pages are mapped to heap yet.
+    procs[hart_id][i].mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
 
-    procs[i].total_mapped_region = 4;
+    procs[hart_id][i].total_mapped_region = 4;
 
     // initialize files_struct
-    procs[i].pfiles = init_proc_file_management();
+    procs[hart_id][i].pfiles = init_proc_file_management();
 
     // return after initialization.
-    return &procs[i];
+    return &procs[hart_id][i];
 }
 static void wakeup(struct process_t *pProcess)
 {
@@ -179,7 +181,7 @@ static void wakeup(struct process_t *pProcess)
 int free_process(process *proc)
 {
     // we set the status to ZOMBIE, but cannot destruct its vm space immediately.
-    // since proc can be current process, and its user kernel stack is currently in use!
+    // since proc can be current[hart_id] process, and its user kernel stack is currently in use!
     // but for proxy kernel, it (memory leaking) may NOT be a really serious issue,
     // as it is different from regular OS, which needs to run 7x24.
     proc->status = ZOMBIE;
@@ -197,7 +199,7 @@ int free_process(process *proc)
 int do_fork(process *parent)
 {
     process *child = alloc_process();
-
+    int hart_id = read_tp();
     for (int i = 0; i < parent->total_mapped_region; i++)
     {
         // browse parent's vm space, and copy its trapframe and data segments,
@@ -226,8 +228,8 @@ int do_fork(process *parent)
             }
 
             // copy and map the heap blocks
-            for (uint64 heap_block = current->user_heap.heap_bottom; heap_block < current->user_heap.heap_top;
-                 heap_block += PGSIZE)
+            for (uint64 heap_block = current[hart_id]->user_heap.heap_bottom;
+                 heap_block < current[hart_id]->user_heap.heap_top; heap_block += PGSIZE)
             {
                 if (free_block_filter[(heap_block - heap_bottom) / PGSIZE]) // skip free blocks
                     continue;
@@ -299,17 +301,18 @@ int do_wait(int pid)
     // 当pid为-1时，父进程等待任意一个子进程退出即返回子进程的pid；
     // 当pid大于0时，父进程等待进程号为pid的子进程退出即返回子进程的pid；
     // 如果pid不合法或pid大于0且pid对应的进程不是当前进程的子进程，返回-1。
+    int hart_id = read_tp();
     if (pid == -1)
     {
         int flag = 0;
         for (int i = 0; i < NPROC; i++)
         {
-            if (procs[i].parent == current && procs[i].status == ZOMBIE)
+            if (procs[hart_id][i].parent == current[hart_id] && procs[hart_id][i].status == ZOMBIE)
             {
-                procs[i].status = FREE;
-                return procs[i].pid;
+                procs[hart_id][i].status = FREE;
+                return procs[hart_id][i].pid;
             }
-            else if (procs[i].parent == current && procs[i].status != ZOMBIE)
+            else if (procs[hart_id][i].parent == current[hart_id] && procs[hart_id][i].status != ZOMBIE)
             {
                 flag = 1;
             }
@@ -320,21 +323,21 @@ int do_wait(int pid)
         }
         else
         {
-            current->status = BLOCKED;
+            current[hart_id]->status = BLOCKED;
             schedule();
             return do_wait(-1);
         }
     }
     else if (pid > 0 && pid < NPROC)
     {
-        if (procs[pid].parent == current && procs[pid].status == ZOMBIE)
+        if (procs[hart_id][pid].parent == current[hart_id] && procs[hart_id][pid].status == ZOMBIE)
         {
-            procs[pid].status = FREE;
+            procs[hart_id][pid].status = FREE;
             return pid;
         }
-        else if (procs[pid].parent == current && procs[pid].status != ZOMBIE)
+        else if (procs[hart_id][pid].parent == current[hart_id] && procs[hart_id][pid].status != ZOMBIE)
         {
-            current->status = BLOCKED;
+            current[hart_id]->status = BLOCKED;
             schedule();
             return do_wait(pid);
         }
@@ -439,23 +442,24 @@ void exec_clean(process *p)
 void print_error_line(const uint64 mepc)
 {
     struct stat st;
-    for (int i = 0; i < current->line_ind; i++)
+    int hart_id = read_tp();
+    for (int i = 0; i < current[hart_id]->line_ind; i++)
     {
-        if (current->line[i].addr > mepc)
+        if (current[hart_id]->line[i].addr > mepc)
         {
-            if (current->line[i].addr <= mepc)
+            if (current[hart_id]->line[i].addr <= mepc)
                 continue;
-            char *dir = current->dir[current->file[current->line[i - 1].file].dir];
-            char *file = current->file[current->line[i - 1].file].file;
-            const int line = current->line[i - 1].line;
+            char *dir = current[hart_id]->dir[current[hart_id]->file[current[hart_id]->line[i - 1].file].dir];
+            char *file = current[hart_id]->file[current[hart_id]->line[i - 1].file].file;
+            const int line = current[hart_id]->line[i - 1].line;
             sprint("Runtime error at %s/%s:%d\n", dir, file, line);
             char filename[256];
             char *p = filename;
-            strcpy(p, current->dir[current->file[current->line[i - 1].file].dir]);
+            strcpy(p, current[hart_id]->dir[current[hart_id]->file[current[hart_id]->line[i - 1].file].dir]);
             p += strlen(p);
             p[0] = '/', p[1] = 0;
             p += 1;
-            strcpy(p, current->file[current->line[i - 1].file].file);
+            strcpy(p, current[hart_id]->file[current[hart_id]->line[i - 1].file].file);
             spike_file_t *fp = spike_file_open(filename, O_RDONLY, 0);
             spike_file_stat(fp, &st);
             char buf[st.st_size];
@@ -483,31 +487,33 @@ void print_error_line(const uint64 mepc)
 
 void try_alloc_free_block()
 {
-    if (current->first_free_block == 0)
+    int hart_id = read_tp();
+    if (current[hart_id]->first_free_block == 0)
     {
         uint64 page = (uint64)alloc_page();
-        uint64 va = current->user_heap.heap_top;
-        current->user_heap.heap_top += PGSIZE;
-        current->mapped_info[HEAP_SEGMENT].npages++;
+        uint64 va = current[hart_id]->user_heap.heap_top;
+        current[hart_id]->user_heap.heap_top += PGSIZE;
+        current[hart_id]->mapped_info[HEAP_SEGMENT].npages++;
         memset((void *)page, 0, PGSIZE);
-        user_vm_map(current->pagetable, va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
-        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)va));
+        user_vm_map(current[hart_id]->pagetable, va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        block_head *head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)va));
         head->capacity = PGSIZE;
         head->next = 0;
-        current->first_free_block = va;
+        current[hart_id]->first_free_block = va;
     }
 }
 
 void *alloc_from_new_block(uint64 n)
 {
+    int hart_id = read_tp();
     uint64 need_size = n + sizeof(block_head);
     uint64 need_pages = (need_size + PGSIZE - 1) / PGSIZE; // 向上取整
     // 先利用va最大的block, 然后再继续分配block, 保证内存分配的连续性
-    uint64 cur = current->first_free_block;
+    uint64 cur = current[hart_id]->first_free_block;
     uint64 max_va = 0, pre = 0, max_pre = 0;
     while (cur != 0)
     {
-        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)cur));
+        block_head *head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)cur));
         if (cur > max_va)
         {
             max_pre = pre;
@@ -516,7 +522,7 @@ void *alloc_from_new_block(uint64 n)
         pre = cur;
         cur = head->next;
     }
-    block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)max_va));
+    block_head *head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)max_va));
 
     uint64 capacity = head->capacity;
     uint64 next = head->next;
@@ -527,11 +533,11 @@ void *alloc_from_new_block(uint64 n)
     do
     {
         uint64 page = (uint64)alloc_page();
-        last_va = current->user_heap.heap_top;
-        current->user_heap.heap_top += PGSIZE;
-        current->mapped_info[HEAP_SEGMENT].npages++;
+        last_va = current[hart_id]->user_heap.heap_top;
+        current[hart_id]->user_heap.heap_top += PGSIZE;
+        current[hart_id]->mapped_info[HEAP_SEGMENT].npages++;
         memset((void *)page, 0, PGSIZE);
-        user_vm_map(current->pagetable, last_va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        user_vm_map(current[hart_id]->pagetable, last_va, PGSIZE, page, prot_to_type(PROT_WRITE | PROT_READ, 1));
         if (need_size > PGSIZE)
             need_size -= PGSIZE;
     }
@@ -543,31 +549,32 @@ void *alloc_from_new_block(uint64 n)
         {
             need_size += sizeof(block_head) - ALIGN;
         }
-        block_head *last_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)(last_va + need_size)));
+        block_head *last_head =
+            (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)(last_va + need_size)));
         last_head->capacity = PGSIZE - need_size;
         last_head->next = next;
         // get head pre
         block_head *max_pre_head;
         if (max_pre != 0)
         {
-            max_pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)max_pre));
+            max_pre_head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)max_pre));
             max_pre_head->next = last_va + need_size;
         }
         else
-            current->first_free_block = last_va + need_size;
+            current[hart_id]->first_free_block = last_va + need_size;
     }
     return (void *)(max_va + sizeof(block_head));
 }
 
 void *alloc_from_free_block(uint64 n)
 {
+    int hart_id = read_tp();
     uint64 need_size = n + sizeof(block_head);
-    uint64 need_pages = (need_size + PGSIZE - 1) / PGSIZE; // 向上取整
-    uint64 cur = current->first_free_block;
+    uint64 cur = current[hart_id]->first_free_block;
     uint64 pre = 0;
     while (cur != 0)
     {
-        block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)cur));
+        block_head *head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)cur));
         uint64 capacity = head->capacity;
         if (capacity >= need_size)
         { // 剩余block 足够填充
@@ -575,11 +582,11 @@ void *alloc_from_free_block(uint64 n)
             { // 恰好填充完, 更新free_block
                 if (pre == 0)
                 { // 说明是第一个block
-                    current->first_free_block = head->next;
+                    current[hart_id]->first_free_block = head->next;
                 }
                 else
                 {
-                    block_head *pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)pre));
+                    block_head *pre_head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)pre));
                     pre_head->next = head->next;
                 }
                 return (void *)(cur + sizeof(block_head));
@@ -593,16 +600,16 @@ void *alloc_from_free_block(uint64 n)
                 }
                 head->capacity = need_size;
                 uint64 va = cur + need_size;
-                block_head *new_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)va));
+                block_head *new_head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)va));
                 new_head->capacity = capacity - need_size;
                 new_head->next = head->next;
                 if (pre == 0)
                 { // 说明是第一个block
-                    current->first_free_block = va;
+                    current[hart_id]->first_free_block = va;
                 }
                 else
                 {
-                    block_head *pre_head = (block_head *)(user_va_to_pa(current->pagetable, (void *)pre));
+                    block_head *pre_head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)pre));
                     pre_head->next = va;
                 }
                 return (void *)(cur + sizeof(block_head));
@@ -628,7 +635,8 @@ void *vm_malloc(uint64 n)
 
 void vm_free(uint64 va)
 {
-    block_head *head = (block_head *)(user_va_to_pa(current->pagetable, (void *)(va - sizeof(block_head))));
-    head->next = current->first_free_block;
-    current->first_free_block = va - sizeof(block_head);
+    int hart_id = read_tp();
+    block_head *head = (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)(va - sizeof(block_head))));
+    head->next = current[hart_id]->first_free_block;
+    current[hart_id]->first_free_block = va - sizeof(block_head);
 }

@@ -1,6 +1,6 @@
 #no print directory
 MAKEFLAGS += --no-print-directory
-cmake-flags := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake-flags := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DNCPU=1
 NINJA := $(shell command -v ninja 2> /dev/null)
 ifneq ($(NINJA),)
 	cmake-flags += -GNinja
