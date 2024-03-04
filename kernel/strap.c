@@ -3,6 +3,8 @@
  */
 
 #include "strap.h"
+
+#include "memlayout.h"
 #include "pmm.h"
 #include "process.h"
 #include "riscv.h"
@@ -66,24 +68,35 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval)
         // virtual address that causes the page fault.
         {
             // Allocate a new physical page
-            void *pa = alloc_page();
-            if (pa == NULL)
+            if (stval > current[hart_id]->trapframe->regs.sp &&stval<USER_STACK_TOP) // stack grows from high to low
             {
-                panic("alloc_page failed.\n");
+                void *pa = alloc_page();
+                if (pa == NULL)
+                {
+                    panic("alloc_page failed.\n");
+                }
+                pte_t *pte = page_walk(current[hart_id]->pagetable, stval, 1);
+                *pte = PA2PTE(pa) | PTE_V | prot_to_type(PROT_WRITE | PROT_READ, 1);
             }
-            // 判断逻辑地址是否在栈的范围内s
-            if (stval < current[hart_id]->trapframe->regs.sp - PGSIZE)
+            else
             {
-                panic("this address is not available!");
+                pte_t *pte = page_walk(current[hart_id]->pagetable, stval, 0);
+                if ((RSW((*pte))) == 1)
+                {
+                    const uint64 origin_pa = PTE2PA(*pte);
+                    free_page((void *)origin_pa); // 尝试释放掉原来的内存
+                    void *pa = alloc_page();
+                    if (pa == NULL)
+                    {
+                        panic("alloc_page failed.\n");
+                    }
+                    *pte = PA2PTE(pa) | PTE_V | prot_to_type(PROT_WRITE | PROT_READ, 1);
+                }
+                else
+                {
+                    panic("this address is not available!");
+                }
             }
-            pte_t *pte = page_walk(current[hart_id]->pagetable, stval, 1);
-            if ((RSW((*pte))) == 1)
-            {
-                uint64 origin_pa = PTE2PA(*pte);
-                free_page((void *)origin_pa); // 尝试释放掉原来的内存
-            }
-            *pte = PA2PTE(pa) | PTE_V | prot_to_type(PROT_WRITE | PROT_READ, 1);
-
             break;
         }
     default:

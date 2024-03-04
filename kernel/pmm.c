@@ -137,7 +137,6 @@ void free_page(void *pa)
 
     if (ref_erase((uint64)pa) == 0)
     {
-        sprint("returning");
         spinlock_unlock(&page_latch_);
         return;
     }

@@ -25,6 +25,7 @@ clean:
 	@if [ -d "bin" ]; then rm -r bin; fi
 	@if [ -d "lib" ]; then rm -r lib; fi
 	@if [ -d "hostfs_root/bin" ]; then rm -r hostfs_root/bin; fi
+	@if [ -d "output" ]; then rm -r output; fi
 	@echo "Done"
 
 run: build
@@ -35,4 +36,16 @@ run: build
 run-mul: build-mul
 	@echo "Running cabbageOS"
 	@spike -p2 bin/cabbageOS /bin/alloc0 /bin/alloc1
+	@echo "Done"
+
+
+test: build
+	@echo "Running cabbageOS tests"
+	-@spike bin/cabbageOS /bin/c_1_1 > output/c_1_1.txt
+	-@spike bin/cabbageOS /bin/c_1_2 > output/c_1_2.txt
+	-@spike bin/cabbageOS /bin/c_2_1 > output/c_2_1.txt
+	-@spike bin/cabbageOS /bin/c_2_2 > output/c_2_2.txt
+	-@spike bin/cabbageOS /bin/c_3_2 > output/c_3_2.txt
+	-@spike bin/cabbageOS /bin/c_3_3 > output/c_3_3.txt
+	-@spike bin/cabbageOS /bin/c_4_1 > output/c_4_1.txt
 	@echo "Done"
