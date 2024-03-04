@@ -360,22 +360,21 @@ void proc_clean_pagetable(process *p)
             uint64 top = p->user_heap.heap_top - PGSIZE;
             for (int j = 0; j < p->mapped_info[i].npages; j++)
             {
-                uint64 pa = lookup_pa(p->pagetable, top);
+                const uint64 pa = lookup_pa(p->pagetable, top);
                 top -= PGSIZE;
                 free_page((void *)pa);
             }
         }
         else
         {
-            pte_t *pte;
             uint64 va = p->mapped_info[i].va;
             int64 size = p->mapped_info[i].npages;
             while (size > 0)
             {
-                pte = page_walk(p->pagetable, va, 0);
+                pte_t *pte = page_walk(p->pagetable, va, 0);
                 if (((*pte & PTE_W) && (*pte & PTE_V)))
                 {
-                    uint64 pa = PTE2PA(*pte);
+                    const uint64 pa = PTE2PA(*pte);
                     free_page((void *)pa);
                     *pte &= ~PTE_V;
                 }
@@ -390,7 +389,6 @@ void exec_clean(process *p)
 {
     // 释放原先内存
     proc_clean_pagetable(p);
-
     // init proc[i]'s vm space
     p->trapframe = (trapframe *)alloc_page(); // trapframe, used to save context
     memset(p->trapframe, 0, sizeof(trapframe));

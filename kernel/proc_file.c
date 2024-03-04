@@ -249,6 +249,7 @@ int do_unlink(char *path) { return vfs_unlink(path, current[read_tp()]->pfiles->
 int do_exec(char *path, char *arg)
 {
     int hart_id = read_tp();
+
     // check file
     struct file *fp = vfs_open(path, O_RDONLY, current[hart_id]->pfiles->cwd);
     if (fp == NULL)
@@ -263,6 +264,8 @@ int do_exec(char *path, char *arg)
     strcpy(args, arg);
     uint64 epc = current[hart_id]->trapframe->epc;
     exec_clean(current[hart_id]);
+
+
     uint64 argv_va = current[hart_id]->trapframe->regs.sp - args_len - 1;
     argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置)
     uint64 argv_pa = (uint64)user_va_to_pa(current[hart_id]->pagetable, (void *)argv_va);

@@ -26,7 +26,7 @@ int main(void) {
 
     // alloc a page size array(int) to store the result of every step
     // the max limit of the number is 4kB/4 = 1024
-
+    printu("Allocating a page size array to store the result of every step\n");
     // SECOND, we use array out of bound to trigger pagefaults in an invalid address
     int *ans = (int *)naive_malloc();
 

@@ -14,14 +14,14 @@ extern uint64 g_mem_size;
 
 static uint64 free_mem_start_addr; // beginning address of free memory
 static uint64 free_mem_end_addr; // end address of free memory (not included)
-int vm_alloc_stage[NCPU] = { 0};
+int vm_alloc_stage[NCPU] = {0};
 typedef struct ref_unit
 {
     uint64 pa;
     uint64 ref;
 } ref_unit;
 static ref_unit ref_list[0x4000];
-static uint64 ref_total = 0;
+static int64 ref_total = 0;
 
 int ref_find(uint64 pa)
 {
@@ -82,6 +82,7 @@ int ref_erase(uint64 pa)
         int mid = (left + right) / 2;
         if (ref_list[mid].pa == pa)
         {
+
             ref_list[mid].ref--;
             if (ref_list[mid].ref == 0)
             {
@@ -91,7 +92,7 @@ int ref_erase(uint64 pa)
             }
             return 0;
         }
-        else if (ref_list[mid].pa < pa)
+        if (ref_list[mid].pa < pa)
         {
             left = mid + 1;
         }
@@ -130,10 +131,17 @@ static spinlock_t page_latch_;
 void free_page(void *pa)
 {
     spinlock_lock(&page_latch_);
+
     if (((uint64)pa % PGSIZE) != 0 || (uint64)pa < free_mem_start_addr || (uint64)pa >= free_mem_end_addr)
         panic("free_page 0x%lx \n", pa);
+
     if (ref_erase((uint64)pa) == 0)
+    {
+        sprint("returning");
+        spinlock_unlock(&page_latch_);
         return;
+    }
+
     // insert a physical page to g_free_mem_list
     list_node *n = (list_node *)pa;
     n->next = g_free_mem_list.next;
@@ -149,9 +157,11 @@ void *alloc_page(void)
 {
     spinlock_lock(&page_latch_);
     list_node *n = g_free_mem_list.next;
-    uint64 hartid = 0;
-    if (vm_alloc_stage[hartid]) {
-        sprint("hartid = %ld: alloc page 0x%x\n", hartid, n);
+    uint64 hartid = read_tp();
+    if (vm_alloc_stage[hartid])
+    {
+        // sprint("hartid = %ld: alloc page 0x%x\n", hartid, n);
+        ;
     }
     if (n)
         g_free_mem_list.next = n->next;
