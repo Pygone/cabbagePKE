@@ -3,6 +3,7 @@
  * The commands are stored in the hostfs_root/shellrc
  * The shell loads the file and executes the command line by line.
  */
+#include <sys/_intsup.h>
 #include "string.h"
 #include "user_lib.h"
 #include "util/types.h"
@@ -31,7 +32,18 @@ void get_args(char *cmd, char *args, char *exec_cmd)
     }
     args[j] = '\0';
 }
-
+int run_help_cmd(char* cmd, char * arg){
+    if (strncmp(cmd, "cd", 2) == 0){
+        change_cwd(arg);
+        return 1;
+    }else if (strncmp(cmd, "pwd", 3) == 0){
+        char path[30];
+        read_cwd(path);
+        printu("cwd:%s\n", path);
+        return 1;
+    } 
+    return 0 ;
+}
 
 int main(int argc, char *argv[])
 {
@@ -58,6 +70,9 @@ int main(int argc, char *argv[])
             break;
         }
         memset(cmd, 0, MAXBUF);
+        if (run_help_cmd(exec_cmd,arg)){
+            continue;
+        }
         int pid = fork();
         if (pid == 0)
         {

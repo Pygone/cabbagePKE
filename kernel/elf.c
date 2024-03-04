@@ -4,6 +4,7 @@
  */
 
 #include "elf.h"
+#include "kernel/process.h"
 #include "pmm.h"
 #include "riscv.h"
 #include "spike_interface/spike_utils.h"
@@ -429,8 +430,10 @@ void load_bincode_from_host_elf(process *p, char *filename)
     elf_ctx elfloader;
     // elf_info is defined above, used to tie the elf file and its corresponding process.
     elf_info info;
+    struct dentry* d = p->pfiles->cwd;
 
-    info.f = vfs_open(filename, O_RDONLY, vfs_root_dentry);
+    sprint("load_bincode_from_host_elf: filename: %s\n", d->name);
+    info.f = vfs_open(filename, O_RDONLY, d);
     info.p = p;
     // IS_ERR_VALUE is a macro defined in spike_interface/spike_htif.h
     if (IS_ERR_VALUE(info.f))
