@@ -575,7 +575,13 @@ struct dentry *lookup_final_dentry(const char *path, struct dentry **parent, cha
     // strtok() outputs three tokens: 1)RAMDISK0, 2)test_dir and 3)ramfile2
     // at its three continuous invocations.
     char *token = strtok(path_copy, "/");
-    struct dentry *this = *parent;
+    struct dentry *this;
+    if (path_copy[0] != '/')
+        this = *parent;
+    else
+    {
+        this = vfs_root_dentry;
+    }
     while (token != NULL)
     {
         if (strcmp(token, ".") == 0)

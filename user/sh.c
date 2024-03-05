@@ -4,6 +4,7 @@
  * The shell loads the file and executes the command line by line.
  */
 #include <sys/_intsup.h>
+#include "spike_interface/spike_utils.h"
 #include "string.h"
 #include "user_lib.h"
 #include "util/string.h"
@@ -42,7 +43,18 @@ int run_help_cmd(char* cmd, char * arg){
         read_cwd(path);
         printu("cwd:%s\n", path);
         return 1;
-    } 
+    } else if (strncmp(cmd, "ls", 2) ==0) {
+        if (arg == NULL || strlen(arg) == 0){
+            arg = ".";
+        }
+        int dir_fd = opendir_u(arg);
+        struct dir dir;
+        while (readdir_u(dir_fd, &dir) ==0) {
+            printu("%s\n", dir.name);
+        }
+        closedir_u(dir_fd);
+        return 1;
+    }
     return 0 ;
 }
 
@@ -71,6 +83,7 @@ int main(int argc, char *argv[])
             break;
         }
         memset(cmd, 0, MAXBUF);
+        printu("%s\n",exec_cmd);
         if (run_help_cmd(exec_cmd,arg)){
             continue;
         }
