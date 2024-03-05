@@ -531,6 +531,9 @@ struct dentry* lookup_final_dentry(const char* path, struct dentry** parent,
 	// at its three continuous invocations.
 	char* token = strtok(path_copy, "/");
 	struct dentry* this = *parent;
+    if (path_copy[0] == '/') {
+        this = vfs_root_dentry;
+    }
 	while (token != NULL) {
 		if (strcmp(token, ".") == 0) {
 			// do nothing
