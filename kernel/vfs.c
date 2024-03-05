@@ -587,7 +587,6 @@ struct dentry *lookup_final_dentry(const char *path, struct dentry **parent, cha
             // go to parent
             if (this->parent == NULL)
             {
-                sprint("lookup_final_dentry: cannot go to parent!\n");
                 return NULL;
             }
             this = this->parent;

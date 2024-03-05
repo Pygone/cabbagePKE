@@ -6,6 +6,7 @@
 #include <sys/_intsup.h>
 #include "string.h"
 #include "user_lib.h"
+#include "util/string.h"
 #include "util/types.h"
 char env[] = "/:/bin:";
 void get_args(char *cmd, char *args, char *exec_cmd)
@@ -73,6 +74,8 @@ int main(int argc, char *argv[])
         if (run_help_cmd(exec_cmd,arg)){
             continue;
         }
+        int len = strlen(exec_cmd);
+        if (len == 0)continue;
         int pid = fork();
         if (pid == 0)
         {

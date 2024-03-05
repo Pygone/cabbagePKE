@@ -317,7 +317,6 @@ int do_change_cwd(char *path)
     struct dentry *file_dentry = lookup_final_dentry(path, &parent, miss_name);
     if (!file_dentry)
     {
-        sprint("vfs_chdir: the directory does not exist! miss_name: %s\n", miss_name);
         return -1;
     }
 

@@ -432,7 +432,6 @@ void load_bincode_from_host_elf(process *p, char *filename)
     elf_info info;
     struct dentry* d = p->pfiles->cwd;
 
-    sprint("load_bincode_from_host_elf: filename: %s\n", d->name);
     info.f = vfs_open(filename, O_RDONLY, d);
     info.p = p;
     // IS_ERR_VALUE is a macro defined in spike_interface/spike_htif.h
