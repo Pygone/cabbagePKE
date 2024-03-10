@@ -542,10 +542,10 @@ void *alloc_from_new_block(uint64 n)
     while (need_size > PGSIZE);
     if (need_size != 0)
     { // 最后一个page没用完, 分配新的head, 给剩余空间
-        uint64 ALIGN = need_size % sizeof(block_head);
+        uint64 ALIGN = need_size % 8;
         if (ALIGN != 0)
         {
-            need_size += sizeof(block_head) - ALIGN;
+            need_size += 8 - ALIGN;
         }
         block_head *last_head =
             (block_head *)(user_va_to_pa(current[hart_id]->pagetable, (void *)(last_va + need_size)));
@@ -591,10 +591,10 @@ void *alloc_from_free_block(uint64 n)
             }
             else
             { // 剩余block 大于需要的block, 更新first_free_block
-                uint64 ALIGN = need_size % sizeof(block_head);
+                uint64 ALIGN = need_size % 8;
                 if (ALIGN != 0)
                 {
-                    need_size += sizeof(block_head) - ALIGN;
+                    need_size += 8 - ALIGN;
                 }
                 head->capacity = need_size;
                 uint64 va = cur + need_size;

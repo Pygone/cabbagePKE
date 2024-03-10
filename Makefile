@@ -42,3 +42,8 @@ test: build
 	-@spike bin/cabbageOS /bin/c_3_3 > output/c_3_3.txt
 	-@spike bin/cabbageOS /bin/c_4_1 > output/c_4_1.txt
 	@echo "Done"
+
+p: build
+	@echo "Running cabbageOS"
+	@spike bin/cabbageOS /bin/c_2_2
+	@echo "Done"
